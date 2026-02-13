@@ -23,7 +23,7 @@ import { useTranslation } from '@/lib/use-translation'
 
 const ELAPSED_INTERVAL_MS = 1000
 
-function ElapsedView(props: { from: number; active: boolean }) {
+function ElapsedView(props: { from: number; to?: number | null; active: boolean }) {
     const [now, setNow] = useState(() => Date.now())
 
     useEffect(() => {
@@ -32,9 +32,10 @@ function ElapsedView(props: { from: number; active: boolean }) {
         return () => clearInterval(id)
     }, [props.active])
 
-    if (!props.active) return null
+    const end = props.active ? now : props.to
+    if (!end) return null
 
-    const elapsed = (now - props.from) / 1000
+    const elapsed = (end - props.from) / 1000
     if (!Number.isFinite(elapsed)) return null
 
     return (
@@ -306,6 +307,7 @@ function ToolCardInner(props: ToolCardProps) {
     const subtitle = presentation.subtitle ?? props.block.tool.description
     const taskSummary = renderTaskSummary(props.block, props.metadata)
     const runningFrom = props.block.tool.startedAt ?? props.block.tool.createdAt
+    const finishedAt = props.block.tool.completedAt
     const showInline = !presentation.minimal && toolName !== 'Task'
     const CompactToolView = showInline ? getToolViewComponent(toolName) : null
     const FullToolView = getToolFullViewComponent(toolName)
@@ -335,7 +337,11 @@ function ToolCardInner(props: ToolCardProps) {
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                    <ElapsedView from={runningFrom} active={props.block.tool.state === 'running'} />
+                    <ElapsedView
+                        from={runningFrom}
+                        to={finishedAt}
+                        active={props.block.tool.state === 'running'}
+                    />
                     <span className={stateColor}>
                         <StatusIcon state={props.block.tool.state} />
                     </span>
