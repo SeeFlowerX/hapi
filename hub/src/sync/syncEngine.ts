@@ -7,6 +7,7 @@
  * - No E2E encryption; data is stored as JSON in SQLite
  */
 
+import { isModelModeAllowedForFlavor, isPermissionModeAllowedForFlavor } from '@hapi/protocol'
 import type { DecryptedMessage, ModelMode, PermissionMode, Session, SyncEvent } from '@hapi/protocol/types'
 import type { Server } from 'socket.io'
 import type { Store } from '../store'
@@ -321,6 +322,8 @@ export class SyncEngine {
         }
 
         const session = access.session
+        const previousPermissionMode = session.permissionMode
+        const previousModelMode = session.modelMode
         if (session.active) {
             return { type: 'success', sessionId: access.sessionId }
         }
@@ -386,9 +389,33 @@ export class SyncEngine {
             return { type: 'error', message: 'Session failed to become active', code: 'resume_failed' }
         }
 
+        const configToApply: { permissionMode?: PermissionMode; modelMode?: ModelMode } = {}
+        if (previousPermissionMode !== undefined && isPermissionModeAllowedForFlavor(previousPermissionMode, flavor)) {
+            configToApply.permissionMode = previousPermissionMode
+        }
+        if (previousModelMode !== undefined && isModelModeAllowedForFlavor(previousModelMode, flavor)) {
+            configToApply.modelMode = previousModelMode
+        }
+        let configApplied = false
+        if (Object.keys(configToApply).length > 0) {
+            try {
+                await this.applySessionConfig(spawnResult.sessionId, configToApply)
+                configApplied = true
+            } catch (error) {
+                console.warn('[resume] Failed to reapply session config', error)
+            }
+        } else {
+            console.debug('[resume] No session config to reapply')
+        }
+        if (configApplied) {
+            console.debug('[resume] Reapplied session config to resumed session')
+        }
+
         if (spawnResult.sessionId !== access.sessionId) {
             try {
-                await this.sessionCache.mergeSessions(access.sessionId, spawnResult.sessionId, namespace)
+                await this.sessionCache.mergeSessions(access.sessionId, spawnResult.sessionId, namespace, {
+                    inheritModes: configApplied
+                })
             } catch (error) {
                 const message = error instanceof Error ? error.message : 'Failed to merge resumed session'
                 return { type: 'error', message, code: 'resume_failed' }

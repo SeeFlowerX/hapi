@@ -283,10 +283,20 @@ export class SessionCache {
         this.publisher.emit({ type: 'session-removed', sessionId, namespace: session.namespace })
     }
 
-    async mergeSessions(oldSessionId: string, newSessionId: string, namespace: string): Promise<void> {
+    async mergeSessions(
+        oldSessionId: string,
+        newSessionId: string,
+        namespace: string,
+        options?: { inheritModes?: boolean }
+    ): Promise<void> {
         if (oldSessionId === newSessionId) {
             return
         }
+
+        const oldSession = this.sessions.get(oldSessionId)
+        const oldPermissionMode = oldSession?.permissionMode
+        const oldModelMode = oldSession?.modelMode
+        const shouldInheritModes = options?.inheritModes === true
 
         const oldStored = this.store.sessions.getSessionByNamespace(oldSessionId, namespace)
         const newStored = this.store.sessions.getSessionByNamespace(newSessionId, namespace)
@@ -338,7 +348,28 @@ export class SessionCache {
         this.lastBroadcastAtBySessionId.delete(oldSessionId)
         this.todoBackfillAttemptedSessionIds.delete(oldSessionId)
 
-        this.refreshSession(newSessionId)
+        const refreshed = this.refreshSession(newSessionId)
+        if (refreshed && shouldInheritModes) {
+            let changed = false
+            if (oldPermissionMode !== undefined && refreshed.permissionMode === undefined) {
+                refreshed.permissionMode = oldPermissionMode
+                changed = true
+            }
+            if (oldModelMode !== undefined && refreshed.modelMode === undefined) {
+                refreshed.modelMode = oldModelMode
+                changed = true
+            }
+            if (changed) {
+                this.publisher.emit({
+                    type: 'session-updated',
+                    sessionId: newSessionId,
+                    data: {
+                        permissionMode: refreshed.permissionMode,
+                        modelMode: refreshed.modelMode
+                    }
+                })
+            }
+        }
     }
 
     private mergeSessionMetadata(oldMetadata: unknown | null, newMetadata: unknown | null): unknown | null {
