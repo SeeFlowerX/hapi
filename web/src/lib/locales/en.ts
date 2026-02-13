@@ -63,7 +63,10 @@ export default {
   'session.action.rename': 'Rename',
   'session.action.archive': 'Archive',
   'session.action.delete': 'Delete',
+  'session.action.activate': 'Activate',
   'session.action.copy': 'Copy',
+  'session.activate.already.title': 'Already active',
+  'session.activate.already.body': 'This session is already active.',
 
   // Dialogs
   'dialog.rename.title': 'Rename Session',

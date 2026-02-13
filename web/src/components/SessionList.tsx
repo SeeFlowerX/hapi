@@ -9,6 +9,7 @@ import { SessionActionMenu } from '@/components/SessionActionMenu'
 import { RenameSessionDialog } from '@/components/RenameSessionDialog'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useTranslation } from '@/lib/use-translation'
+import { useToast } from '@/lib/toast-context'
 
 type SessionGroup = {
     directory: string
@@ -165,18 +166,21 @@ function formatRelativeTime(value: number, t: (key: string, params?: Record<stri
 function SessionItem(props: {
     session: SessionSummary
     onSelect: (sessionId: string) => void
+    onRefresh: () => void
     showPath?: boolean
     api: ApiClient | null
     selected?: boolean
 }) {
     const { t } = useTranslation()
-    const { session: s, onSelect, showPath = true, api, selected = false } = props
+    const { session: s, onSelect, onRefresh, showPath = true, api, selected = false } = props
     const { haptic } = usePlatform()
+    const { addToast } = useToast()
     const [menuOpen, setMenuOpen] = useState(false)
     const [menuAnchorPoint, setMenuAnchorPoint] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
     const [renameOpen, setRenameOpen] = useState(false)
     const [archiveOpen, setArchiveOpen] = useState(false)
     const [deleteOpen, setDeleteOpen] = useState(false)
+    const [activatePending, setActivatePending] = useState(false)
 
     const { archiveSession, renameSession, deleteSession, isPending } = useSessionActions(
         api,
@@ -202,6 +206,37 @@ function SessionItem(props: {
     const statusDotClass = s.active
         ? (s.thinking ? 'bg-[#007AFF]' : 'bg-[var(--app-badge-success-text)]')
         : 'bg-[var(--app-hint)]'
+
+    const handleActivate = async () => {
+        if (!api || activatePending) return
+        if (s.active) {
+            addToast({
+                title: t('session.activate.already.title'),
+                body: t('session.activate.already.body'),
+                sessionId: s.id,
+                url: ''
+            })
+            return
+        }
+        setActivatePending(true)
+        try {
+            const resumedSessionId = await api.resumeSession(s.id)
+            haptic.notification('success')
+            onRefresh()
+        } catch (error) {
+            haptic.notification('error')
+            const message = error instanceof Error ? error.message : 'Resume failed'
+            addToast({
+                title: 'Resume failed',
+                body: message,
+                sessionId: s.id,
+                url: ''
+            })
+        } finally {
+            setActivatePending(false)
+        }
+    }
+
     return (
         <>
             <button
@@ -275,6 +310,8 @@ function SessionItem(props: {
                 isOpen={menuOpen}
                 onClose={() => setMenuOpen(false)}
                 sessionActive={s.active}
+                onActivate={handleActivate}
+                activateDisabled={activatePending || isPending}
                 onRename={() => setRenameOpen(true)}
                 onArchive={() => setArchiveOpen(true)}
                 onDelete={() => setDeleteOpen(true)}
@@ -413,6 +450,7 @@ export function SessionList(props: {
                                             key={s.id}
                                             session={s}
                                             onSelect={props.onSelect}
+                                            onRefresh={props.onRefresh}
                                             showPath={false}
                                             api={api}
                                             selected={s.id === selectedSessionId}

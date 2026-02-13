@@ -13,6 +13,8 @@ type SessionActionMenuProps = {
     isOpen: boolean
     onClose: () => void
     sessionActive: boolean
+    onActivate?: () => void
+    activateDisabled?: boolean
     onRename: () => void
     onArchive: () => void
     onDelete: () => void
@@ -84,6 +86,25 @@ function TrashIcon(props: { className?: string }) {
     )
 }
 
+function ActivateIcon(props: { className?: string }) {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={props.className}
+        >
+            <polygon points="6 4 20 12 6 20 6 4" />
+        </svg>
+    )
+}
+
 type MenuPosition = {
     top: number
     left: number
@@ -96,6 +117,8 @@ export function SessionActionMenu(props: SessionActionMenuProps) {
         isOpen,
         onClose,
         sessionActive,
+        onActivate,
+        activateDisabled,
         onRename,
         onArchive,
         onDelete,
@@ -121,6 +144,12 @@ export function SessionActionMenu(props: SessionActionMenuProps) {
     const handleDelete = () => {
         onClose()
         onDelete()
+    }
+
+    const handleActivate = () => {
+        if (activateDisabled) return
+        onClose()
+        onActivate?.()
     }
 
     const updatePosition = useCallback(() => {
@@ -209,7 +238,7 @@ export function SessionActionMenu(props: SessionActionMenuProps) {
         : undefined
 
     const baseItemClassName =
-        'flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-base transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-link)]'
+        'flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-base transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-link)] disabled:opacity-50'
 
     return (
         <div
@@ -229,6 +258,18 @@ export function SessionActionMenu(props: SessionActionMenuProps) {
                 aria-labelledby={headingId}
                 className="flex flex-col gap-1"
             >
+                {onActivate ? (
+                    <button
+                        type="button"
+                        role="menuitem"
+                        className={`${baseItemClassName} hover:bg-[var(--app-subtle-bg)]`}
+                        onClick={handleActivate}
+                        disabled={activateDisabled}
+                    >
+                        <ActivateIcon className="text-[var(--app-hint)]" />
+                        {t('session.action.activate')}
+                    </button>
+                ) : null}
                 <button
                     type="button"
                     role="menuitem"

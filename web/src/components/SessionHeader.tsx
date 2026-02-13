@@ -1,4 +1,4 @@
-import { useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useId, useMemo, useRef, useState } from 'react'
 import type { Session } from '@/types/api'
 import type { ApiClient } from '@/api/client'
 import { isTelegramApp } from '@/hooks/useTelegram'
@@ -7,6 +7,8 @@ import { SessionActionMenu } from '@/components/SessionActionMenu'
 import { RenameSessionDialog } from '@/components/RenameSessionDialog'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useTranslation } from '@/lib/use-translation'
+import { usePlatform } from '@/hooks/usePlatform'
+import { useToast } from '@/lib/toast-context'
 
 function getSessionTitle(session: Session): string {
     if (session.metadata?.name) {
@@ -66,8 +68,11 @@ export function SessionHeader(props: {
     onViewFiles?: () => void
     api: ApiClient | null
     onSessionDeleted?: () => void
+    onRefresh?: () => void
 }) {
     const { t } = useTranslation()
+    const { haptic } = usePlatform()
+    const { addToast } = useToast()
     const { session, api, onSessionDeleted } = props
     const title = useMemo(() => getSessionTitle(session), [session])
     const worktreeBranch = session.metadata?.worktree?.branch
@@ -79,12 +84,43 @@ export function SessionHeader(props: {
     const [renameOpen, setRenameOpen] = useState(false)
     const [archiveOpen, setArchiveOpen] = useState(false)
     const [deleteOpen, setDeleteOpen] = useState(false)
+    const [activatePending, setActivatePending] = useState(false)
 
     const { archiveSession, renameSession, deleteSession, isPending } = useSessionActions(
         api,
         session.id,
         session.metadata?.flavor ?? null
     )
+
+    const handleActivate = useCallback(async () => {
+        if (!api || activatePending) return
+        if (session.active) {
+            addToast({
+                title: t('session.activate.already.title'),
+                body: t('session.activate.already.body'),
+                sessionId: session.id,
+                url: ''
+            })
+            return
+        }
+        setActivatePending(true)
+        try {
+            await api.resumeSession(session.id)
+            haptic.notification('success')
+            props.onRefresh?.()
+        } catch (error) {
+            haptic.notification('error')
+            const message = error instanceof Error ? error.message : 'Resume failed'
+            addToast({
+                title: 'Resume failed',
+                body: message,
+                sessionId: session.id,
+                url: ''
+            })
+        } finally {
+            setActivatePending(false)
+        }
+    }, [api, session.active, session.id, props.onRefresh, haptic, addToast, activatePending, t])
 
     const handleDelete = async () => {
         await deleteSession()
@@ -185,6 +221,8 @@ export function SessionHeader(props: {
                 isOpen={menuOpen}
                 onClose={() => setMenuOpen(false)}
                 sessionActive={session.active}
+                onActivate={handleActivate}
+                activateDisabled={activatePending || isPending}
                 onRename={() => setRenameOpen(true)}
                 onArchive={() => setArchiveOpen(true)}
                 onDelete={() => setDeleteOpen(true)}
