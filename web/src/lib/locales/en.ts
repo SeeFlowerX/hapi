@@ -283,4 +283,7 @@ export default {
   'misc.permissionRequired': 'permission required',
   'misc.percentLeft': '{percent}% left',
   'misc.online': 'online',
+  'misc.openFile': 'Open',
+  'misc.download': 'Download',
+  'misc.downloadFailed': 'Download failed',
 } as const

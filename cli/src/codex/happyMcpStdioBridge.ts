@@ -64,9 +64,18 @@ export async function runHappyMcpStdioBridge(argv: string[]): Promise<void> {
       version: '1.0.0',
     });
 
-    // Register the single tool and forward to HTTP MCP
+    // Register tools and forward to HTTP MCP
     const changeTitleInputSchema: z.ZodTypeAny = z.object({
       title: z.string().describe('The new title for the chat session'),
+    });
+    const shareFilesInputSchema: z.ZodTypeAny = z.object({
+      files: z.array(z.object({
+        path: z.string(),
+        filename: z.string().optional(),
+        mimeType: z.string().optional(),
+        title: z.string().optional(),
+      })).min(1),
+      message: z.string().optional(),
     });
 
     server.registerTool<any, any>(
@@ -86,6 +95,29 @@ export async function runHappyMcpStdioBridge(argv: string[]): Promise<void> {
           return {
             content: [
               { type: 'text' as const, text: `Failed to change chat title: ${error instanceof Error ? error.message : String(error)}` },
+            ],
+            isError: true,
+          };
+        }
+      }
+    );
+
+    server.registerTool<any, any>(
+      'share_files',
+      {
+        description: 'Share files or images with the user',
+        title: 'Share Files',
+        inputSchema: shareFilesInputSchema,
+      },
+      async (args: Record<string, unknown>) => {
+        try {
+          const client = await ensureHttpClient();
+          const response = await client.callTool({ name: 'share_files', arguments: args });
+          return response as any;
+        } catch (error) {
+          return {
+            content: [
+              { type: 'text' as const, text: `Failed to share files: ${error instanceof Error ? error.message : String(error)}` },
             ],
             isError: true,
           };

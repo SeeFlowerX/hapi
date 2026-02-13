@@ -1,4 +1,5 @@
 import type { AgentEvent, NormalizedAgentContent, NormalizedMessage, ToolResultPermission } from '@/chat/types'
+import type { AttachmentMetadata } from '@/types/api'
 import { asNumber, asString, isObject } from '@hapi/protocol'
 
 function normalizeToolResultPermissions(value: unknown): ToolResultPermission | undefined {
@@ -31,6 +32,31 @@ function normalizeAgentEvent(value: unknown): AgentEvent | null {
     return value as AgentEvent
 }
 
+function parseAttachments(raw: unknown): AttachmentMetadata[] | undefined {
+    if (!Array.isArray(raw)) return undefined
+    const attachments: AttachmentMetadata[] = []
+    for (const item of raw) {
+        if (
+            isObject(item) &&
+            typeof item.id === 'string' &&
+            typeof item.filename === 'string' &&
+            typeof item.mimeType === 'string' &&
+            typeof item.size === 'number' &&
+            typeof item.path === 'string'
+        ) {
+            attachments.push({
+                id: item.id,
+                filename: item.filename,
+                mimeType: item.mimeType,
+                size: item.size,
+                path: item.path,
+                previewUrl: typeof item.previewUrl === 'string' ? item.previewUrl : undefined
+            })
+        }
+    }
+    return attachments.length > 0 ? attachments : undefined
+}
+
 function normalizeAssistantOutput(
     messageId: string,
     localId: string | null,
@@ -50,11 +76,25 @@ function normalizeAssistantOutput(
 
     if (typeof modelContent === 'string') {
         blocks.push({ type: 'text', text: modelContent, uuid, parentUUID })
+    } else if (isObject(modelContent) && modelContent.type === 'text' && typeof modelContent.text === 'string') {
+        blocks.push({
+            type: 'text',
+            text: modelContent.text,
+            uuid,
+            parentUUID,
+            attachments: parseAttachments(modelContent.attachments)
+        })
     } else if (Array.isArray(modelContent)) {
         for (const block of modelContent) {
             if (!isObject(block) || typeof block.type !== 'string') continue
             if (block.type === 'text' && typeof block.text === 'string') {
-                blocks.push({ type: 'text', text: block.text, uuid, parentUUID })
+                blocks.push({
+                    type: 'text',
+                    text: block.text,
+                    uuid,
+                    parentUUID,
+                    attachments: parseAttachments(block.attachments)
+                })
                 continue
             }
             if (block.type === 'thinking' && typeof block.thinking === 'string') {

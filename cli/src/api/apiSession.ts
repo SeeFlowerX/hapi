@@ -206,6 +206,10 @@ export class ApiSessionClient extends EventEmitter {
         this.socket.connect()
     }
 
+    getSessionPath(): string | null {
+        return this.metadata?.path ?? null
+    }
+
     onUserMessage(callback: (data: UserMessage) => void): void {
         this.pendingMessageCallback = callback
         while (this.pendingMessages.length > 0) {

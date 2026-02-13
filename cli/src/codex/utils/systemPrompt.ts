@@ -19,7 +19,11 @@ export const TITLE_INSTRUCTION = trimIdent(`
     If the task focus changes significantly later, call the title tool again with a better title.
 `);
 
+export const SHARE_FILES_INSTRUCTION = trimIdent(`
+    When the user asks you to send, share, or return a file or image, call functions.hapi__share_files with the file paths. Include a short message if helpful.
+`);
+
 /**
  * The system prompt to inject via developer_instructions in local mode.
  */
-export const codexSystemPrompt = TITLE_INSTRUCTION;
+export const codexSystemPrompt = `${TITLE_INSTRUCTION}\n\n${SHARE_FILES_INSTRUCTION}`;

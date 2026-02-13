@@ -54,6 +54,7 @@ export type NormalizedAgentContent =
         text: string
         uuid: string
         parentUUID: string | null
+        attachments?: AttachmentMetadata[]
     }
     | {
         type: 'reasoning'
@@ -130,6 +131,7 @@ export type AgentTextBlock = {
     localId: string | null
     createdAt: number
     text: string
+    attachments?: AttachmentMetadata[]
     meta?: unknown
 }
 

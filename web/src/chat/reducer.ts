@@ -2,7 +2,7 @@ import type { AgentState } from '@/types/api'
 import type { ChatBlock, NormalizedMessage, UsageData } from '@/chat/types'
 import { traceMessages, type TracedMessage } from '@/chat/tracer'
 import { dedupeAgentEvents, foldApiErrorEvents } from '@/chat/reducerEvents'
-import { collectTitleChanges, collectToolIdsFromMessages, ensureToolBlock, getPermissions } from '@/chat/reducerTools'
+import { collectShareFilesToolIds, collectTitleChanges, collectToolIdsFromMessages, ensureToolBlock, getPermissions, isShareFilesToolName } from '@/chat/reducerTools'
 import { reduceTimeline } from '@/chat/reducerTimeline'
 
 // Calculate context size from usage data
@@ -25,6 +25,7 @@ export function reduceChatBlocks(
 ): { blocks: ChatBlock[]; hasReadyEvent: boolean; latestUsage: LatestUsage | null } {
     const permissionsById = getPermissions(agentState)
     const toolIdsInMessages = collectToolIdsFromMessages(normalized)
+    const shareFilesToolUseIds = collectShareFilesToolIds(normalized)
     const titleChangesByToolUseId = collectTitleChanges(normalized)
 
     const traced = traceMessages(normalized)
@@ -43,7 +44,14 @@ export function reduceChatBlocks(
 
     const consumedGroupIds = new Set<string>()
     const emittedTitleChangeToolUseIds = new Set<string>()
-    const reducerContext = { permissionsById, groups, consumedGroupIds, titleChangesByToolUseId, emittedTitleChangeToolUseIds }
+    const reducerContext = {
+        permissionsById,
+        groups,
+        consumedGroupIds,
+        titleChangesByToolUseId,
+        emittedTitleChangeToolUseIds,
+        shareFilesToolUseIds
+    }
     const rootResult = reduceTimeline(root, reducerContext)
     let hasReadyEvent = rootResult.hasReadyEvent
 
@@ -57,6 +65,9 @@ export function reduceChatBlocks(
     for (const [id, entry] of permissionsById) {
         if (toolIdsInMessages.has(id)) continue
         if (rootResult.toolBlocksById.has(id)) continue
+        if (isShareFilesToolName(entry.toolName) && entry.permission.status !== 'pending') {
+            continue
+        }
 
         const createdAt = entry.permission.createdAt ?? Date.now()
 

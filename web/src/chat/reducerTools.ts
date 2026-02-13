@@ -129,12 +129,19 @@ export function ensureToolBlock(
 
 export function collectToolIdsFromMessages(messages: NormalizedMessage[]): Set<string> {
     const ids = new Set<string>()
+    const shareFilesToolIds = collectShareFilesToolIds(messages)
     for (const msg of messages) {
         if (msg.role !== 'agent') continue
         for (const content of msg.content) {
             if (content.type === 'tool-call') {
+                if (shareFilesToolIds.has(content.id)) {
+                    continue
+                }
                 ids.add(content.id)
             } else if (content.type === 'tool-result') {
+                if (shareFilesToolIds.has(content.tool_use_id)) {
+                    continue
+                }
                 ids.add(content.tool_use_id)
             }
         }
@@ -144,6 +151,10 @@ export function collectToolIdsFromMessages(messages: NormalizedMessage[]): Set<s
 
 export function isChangeTitleToolName(name: string): boolean {
     return name === 'mcp__hapi__change_title' || name === 'hapi__change_title'
+}
+
+export function isShareFilesToolName(name: string): boolean {
+    return name === 'mcp__hapi__share_files' || name === 'hapi__share_files' || name === 'hapi_share_files'
 }
 
 export function extractTitleFromChangeTitleInput(input: unknown): string | null {
@@ -165,4 +176,17 @@ export function collectTitleChanges(messages: NormalizedMessage[]): Map<string, 
         }
     }
     return map
+}
+
+export function collectShareFilesToolIds(messages: NormalizedMessage[]): Set<string> {
+    const ids = new Set<string>()
+    for (const msg of messages) {
+        if (msg.role !== 'agent') continue
+        for (const content of msg.content) {
+            if (content.type !== 'tool-call') continue
+            if (!isShareFilesToolName(content.name)) continue
+            ids.add(content.id)
+        }
+    }
+    return ids
 }

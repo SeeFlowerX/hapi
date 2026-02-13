@@ -46,7 +46,7 @@ function toThreadMessageLike(block: ChatBlock): ThreadMessageLike {
             createdAt: new Date(block.createdAt),
             content: [{ type: 'text', text: block.text }],
             metadata: {
-                custom: { kind: 'assistant' } satisfies HappyChatMessageMetadata
+                custom: { kind: 'assistant', attachments: block.attachments } satisfies HappyChatMessageMetadata
             }
         }
     }

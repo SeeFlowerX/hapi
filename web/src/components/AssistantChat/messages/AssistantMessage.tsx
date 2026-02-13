@@ -4,6 +4,7 @@ import { Reasoning, ReasoningGroup } from '@/components/assistant-ui/reasoning'
 import { HappyToolMessage } from '@/components/AssistantChat/messages/ToolMessage'
 import { CliOutputBlock } from '@/components/CliOutputBlock'
 import type { HappyChatMessageMetadata } from '@/lib/assistant-runtime'
+import { MessageAttachments } from '@/components/AssistantChat/messages/MessageAttachments'
 
 const TOOL_COMPONENTS = {
     Fallback: HappyToolMessage
@@ -31,6 +32,11 @@ export function HappyAssistantMessage() {
         const parts = message.content
         return parts.length > 0 && parts.every((part) => part.type === 'tool-call')
     })
+    const attachments = useAssistantState(({ message }) => {
+        if (message.role !== 'assistant') return undefined
+        const custom = message.metadata.custom as Partial<HappyChatMessageMetadata> | undefined
+        return custom?.attachments
+    })
     const rootClass = toolOnly
         ? 'py-1 min-w-0 max-w-full overflow-x-hidden'
         : 'px-1 min-w-0 max-w-full overflow-x-hidden'
@@ -46,6 +52,9 @@ export function HappyAssistantMessage() {
     return (
         <MessagePrimitive.Root className={rootClass}>
             <MessagePrimitive.Content components={MESSAGE_PART_COMPONENTS} />
+            {attachments && attachments.length > 0 ? (
+                <MessageAttachments attachments={attachments} enableActions />
+            ) : null}
         </MessagePrimitive.Root>
     )
 }

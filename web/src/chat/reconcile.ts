@@ -9,6 +9,7 @@ import type {
     ToolPermission,
     UserTextBlock,
 } from '@/chat/types'
+import type { AttachmentMetadata } from '@/types/api'
 
 export type ChatBlocksById = Map<string, ChatBlock>
 
@@ -27,6 +28,27 @@ function areStringArraysEqual(left?: string[] | null, right?: string[] | null): 
     if (left.length !== right.length) return false
     for (let i = 0; i < left.length; i += 1) {
         if (left[i] !== right[i]) return false
+    }
+    return true
+}
+
+function areAttachmentsEqual(left?: AttachmentMetadata[] | null, right?: AttachmentMetadata[] | null): boolean {
+    if (left === right) return true
+    if (!left || !right) return false
+    if (left.length !== right.length) return false
+    for (let i = 0; i < left.length; i += 1) {
+        const l = left[i]
+        const r = right[i]
+        if (
+            l.id !== r.id
+            || l.filename !== r.filename
+            || l.mimeType !== r.mimeType
+            || l.size !== r.size
+            || l.path !== r.path
+            || l.previewUrl !== r.previewUrl
+        ) {
+            return false
+        }
     }
     return true
 }
@@ -109,6 +131,7 @@ function areUserTextBlocksEqual(left: UserTextBlock, right: UserTextBlock): bool
         && left.localId === right.localId
         && left.createdAt === right.createdAt
         && left.meta === right.meta
+        && areAttachmentsEqual(left.attachments, right.attachments)
 }
 
 function areAgentTextBlocksEqual(left: AgentTextBlock, right: AgentTextBlock): boolean {
@@ -116,6 +139,7 @@ function areAgentTextBlocksEqual(left: AgentTextBlock, right: AgentTextBlock): b
         && left.localId === right.localId
         && left.createdAt === right.createdAt
         && left.meta === right.meta
+        && areAttachmentsEqual(left.attachments, right.attachments)
 }
 
 function areAgentReasoningBlocksEqual(left: AgentReasoningBlock, right: AgentReasoningBlock): boolean {

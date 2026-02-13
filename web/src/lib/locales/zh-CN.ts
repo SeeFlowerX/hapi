@@ -285,4 +285,7 @@ export default {
   'misc.permissionRequired': '需要权限',
   'misc.percentLeft': '剩余 {percent}%',
   'misc.online': '在线',
+  'misc.openFile': '查看',
+  'misc.download': '下载',
+  'misc.downloadFailed': '下载失败',
 } as const
