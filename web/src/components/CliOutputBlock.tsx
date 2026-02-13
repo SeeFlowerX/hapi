@@ -135,7 +135,7 @@ export function CliOutputBlock(props: { text: string }) {
                         </DialogHeader>
                         <div className="mt-3 max-h-[75vh] overflow-auto">
                             <div className="min-w-0 max-w-full overflow-x-auto overflow-y-hidden">
-                                <pre className="m-0 w-max min-w-full bg-[var(--app-code-bg)] p-2 text-xs font-mono">
+                                <pre className="m-0 w-full min-w-full bg-[var(--app-code-bg)] p-2 text-xs font-mono whitespace-pre-wrap break-words">
                                     {content}
                                 </pre>
                             </div>
