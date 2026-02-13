@@ -9,10 +9,16 @@ import { registerSlashCommandHandlers } from './handlers/slashCommands'
 import { registerSkillsHandlers } from './handlers/skills'
 import { registerUploadHandlers } from './handlers/uploads'
 
-export function registerCommonHandlers(rpcHandlerManager: RpcHandlerManager, workingDirectory: string): void {
+export function registerCommonHandlers(
+    rpcHandlerManager: RpcHandlerManager,
+    workingDirectory: string,
+    options?: { allowOutsideWorkingDirectory?: boolean }
+): void {
     registerBashHandlers(rpcHandlerManager, workingDirectory)
     registerFileHandlers(rpcHandlerManager, workingDirectory)
-    registerDirectoryHandlers(rpcHandlerManager, workingDirectory)
+    registerDirectoryHandlers(rpcHandlerManager, workingDirectory, {
+        allowOutsideWorkingDirectory: options?.allowOutsideWorkingDirectory
+    })
     registerRipgrepHandlers(rpcHandlerManager, workingDirectory)
     registerDifftasticHandlers(rpcHandlerManager, workingDirectory)
     registerSlashCommandHandlers(rpcHandlerManager)

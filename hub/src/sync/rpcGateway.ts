@@ -37,6 +37,12 @@ export type RpcDirectoryEntry = {
 export type RpcListDirectoryResponse = {
     success: boolean
     entries?: RpcDirectoryEntry[]
+    path?: string
+    error?: string
+}
+
+export type RpcCreateDirectoryResponse = {
+    success: boolean
     error?: string
 }
 
@@ -170,6 +176,14 @@ export class RpcGateway {
 
     async listDirectory(sessionId: string, path: string): Promise<RpcListDirectoryResponse> {
         return await this.sessionRpc(sessionId, 'listDirectory', { path }) as RpcListDirectoryResponse
+    }
+
+    async listMachineDirectory(machineId: string, path: string): Promise<RpcListDirectoryResponse> {
+        return await this.machineRpc(machineId, 'listDirectory', { path }) as RpcListDirectoryResponse
+    }
+
+    async createMachineDirectory(machineId: string, path: string): Promise<RpcCreateDirectoryResponse> {
+        return await this.machineRpc(machineId, 'createDirectory', { path }) as RpcCreateDirectoryResponse
     }
 
     async uploadFile(sessionId: string, filename: string, content: string, mimeType: string): Promise<RpcUploadFileResponse> {

@@ -1,5 +1,6 @@
 import { logger } from '@/ui/logger'
-import { readdir, stat } from 'fs/promises'
+import { mkdir, readdir, stat } from 'fs/promises'
+import { homedir } from 'os'
 import { basename, join, resolve } from 'path'
 import type { RpcHandlerManager } from '@/api/rpc/RpcHandlerManager'
 import { validatePath } from '../pathSecurity'
@@ -19,6 +20,16 @@ interface DirectoryEntry {
 interface ListDirectoryResponse {
     success: boolean
     entries?: DirectoryEntry[]
+    path?: string
+    error?: string
+}
+
+interface CreateDirectoryRequest {
+    path: string
+}
+
+interface CreateDirectoryResponse {
+    success: boolean
     error?: string
 }
 
@@ -42,24 +53,60 @@ interface GetDirectoryTreeResponse {
     error?: string
 }
 
-export function registerDirectoryHandlers(rpcHandlerManager: RpcHandlerManager, workingDirectory: string): void {
+type DirectoryHandlerOptions = {
+    allowOutsideWorkingDirectory?: boolean
+    defaultPath?: string
+}
+
+function expandHomePath(value: string): string {
+    const trimmed = value.trim()
+    if (trimmed === '~') {
+        return homedir()
+    }
+    if (trimmed.startsWith('~/') || trimmed.startsWith('~\\')) {
+        return join(homedir(), trimmed.slice(2))
+    }
+    return trimmed
+}
+
+function resolveTargetPath(
+    targetPath: string,
+    workingDirectory: string,
+    options?: DirectoryHandlerOptions
+): { resolvedPath: string; error?: string } {
+    const expandedPath = expandHomePath(targetPath)
+    if (!options?.allowOutsideWorkingDirectory) {
+        const validation = validatePath(expandedPath, workingDirectory)
+        if (!validation.valid) {
+            return { resolvedPath: '', error: validation.error ?? 'Invalid directory path' }
+        }
+        return { resolvedPath: resolve(workingDirectory, expandedPath) }
+    }
+    return { resolvedPath: resolve(expandedPath) }
+}
+
+export function registerDirectoryHandlers(
+    rpcHandlerManager: RpcHandlerManager,
+    workingDirectory: string,
+    options?: DirectoryHandlerOptions
+): void {
     rpcHandlerManager.registerHandler<ListDirectoryRequest, ListDirectoryResponse>('listDirectory', async (data) => {
         logger.debug('List directory request:', data.path)
 
-        const targetPath = data.path || '.'
-
-        const validation = validatePath(targetPath, workingDirectory)
-        if (!validation.valid) {
-            return rpcError(validation.error ?? 'Invalid directory path')
+        const fallbackPath = options?.defaultPath
+            ?? (options?.allowOutsideWorkingDirectory ? homedir() : '.')
+        const targetPath = data.path?.trim() || fallbackPath
+        const resolved = resolveTargetPath(targetPath, workingDirectory, options)
+        if (resolved.error) {
+            return rpcError(resolved.error)
         }
 
         try {
-            const resolvedPath = resolve(workingDirectory, targetPath)
-            const entries = await readdir(resolvedPath, { withFileTypes: true })
+            const entries = await readdir(resolved.resolvedPath, { withFileTypes: true })
 
             const directoryEntries: DirectoryEntry[] = await Promise.all(
                 entries.map(async (entry) => {
-                    const fullPath = join(resolvedPath, entry.name)
+                    const fullPath = join(resolved.resolvedPath, entry.name)
                     let type: 'file' | 'directory' | 'other' = 'other'
                     let size: number | undefined
                     let modified: number | undefined
@@ -97,10 +144,32 @@ export function registerDirectoryHandlers(rpcHandlerManager: RpcHandlerManager, 
                 return a.name.localeCompare(b.name)
             })
 
-            return { success: true, entries: directoryEntries }
+            return { success: true, entries: directoryEntries, path: resolved.resolvedPath }
         } catch (error) {
             logger.debug('Failed to list directory:', error)
             return rpcError(getErrorMessage(error, 'Failed to list directory'))
+        }
+    })
+
+    rpcHandlerManager.registerHandler<CreateDirectoryRequest, CreateDirectoryResponse>('createDirectory', async (data) => {
+        logger.debug('Create directory request:', data.path)
+
+        const targetPath = data.path?.trim()
+        if (!targetPath) {
+            return rpcError('Directory path is required')
+        }
+
+        const resolved = resolveTargetPath(targetPath, workingDirectory, options)
+        if (resolved.error) {
+            return rpcError(resolved.error)
+        }
+
+        try {
+            await mkdir(resolved.resolvedPath, { recursive: true })
+            return { success: true }
+        } catch (error) {
+            logger.debug('Failed to create directory:', error)
+            return rpcError(getErrorMessage(error, 'Failed to create directory'))
         }
     })
 

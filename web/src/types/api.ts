@@ -109,6 +109,12 @@ export type DirectoryEntry = {
 export type ListDirectoryResponse = {
     success: boolean
     entries?: DirectoryEntry[]
+    path?: string
+    error?: string
+}
+
+export type CreateDirectoryResponse = {
+    success: boolean
     error?: string
 }
 

@@ -11,6 +11,7 @@ import { normalizeCodexModel } from '@/lib/codexModels'
 import type { AgentType, SessionType } from './types'
 import { ActionButtons } from './ActionButtons'
 import { AgentSelector } from './AgentSelector'
+import { DirectoryBrowser } from './DirectoryBrowser'
 import { DirectorySection } from './DirectorySection'
 import { MachineSelector } from './MachineSelector'
 import { ModelSelector } from './ModelSelector'
@@ -38,6 +39,8 @@ export function NewSession(props: {
 
     const [machineId, setMachineId] = useState<string | null>(null)
     const [directory, setDirectory] = useState('')
+    const [browserPath, setBrowserPath] = useState('')
+    const [isBrowserOpen, setIsBrowserOpen] = useState(false)
     const [suppressSuggestions, setSuppressSuggestions] = useState(false)
     const [isDirectoryFocused, setIsDirectoryFocused] = useState(false)
     const [pathExistence, setPathExistence] = useState<Record<string, boolean>>({})
@@ -82,6 +85,17 @@ export function NewSession(props: {
             setMachineId(props.machines[0].id)
         }
     }, [props.machines, machineId, getLastUsedMachineId, getRecentPaths])
+
+    useEffect(() => {
+        if (!machineId) {
+            setBrowserPath('')
+            setIsBrowserOpen(false)
+            return
+        }
+        const fallback = getRecentPaths(machineId)[0] ?? ''
+        setBrowserPath(fallback)
+        setIsBrowserOpen(false)
+    }, [machineId, getRecentPaths])
 
     const recentPaths = useMemo(
         () => getRecentPaths(machineId),
@@ -169,6 +183,25 @@ export function NewSession(props: {
     const handleDirectoryChange = useCallback((value: string) => {
         setSuppressSuggestions(false)
         setDirectory(value)
+    }, [])
+
+    const handleToggleBrowser = useCallback(() => {
+        setIsBrowserOpen((prev) => {
+            const next = !prev
+            if (next && directory.trim()) {
+                setBrowserPath(directory.trim())
+            } else if (next && !browserPath) {
+                const fallback = machineId ? getRecentPaths(machineId)[0] ?? '' : ''
+                setBrowserPath(fallback)
+            }
+            return next
+        })
+    }, [directory, browserPath, machineId, getRecentPaths])
+
+    const handleBrowserSelect = useCallback((path: string) => {
+        setDirectory(path)
+        setSuppressSuggestions(true)
+        setIsBrowserOpen(false)
     }, [])
 
     const handleDirectoryFocus = useCallback(() => {
@@ -262,6 +295,19 @@ export function NewSession(props: {
                 selectedIndex={selectedIndex}
                 isDisabled={isFormDisabled}
                 recentPaths={recentPaths}
+                canBrowse={Boolean(machineId)}
+                isBrowserOpen={isBrowserOpen}
+                onToggleBrowser={handleToggleBrowser}
+                browser={(
+                    <DirectoryBrowser
+                        api={props.api}
+                        machineId={machineId}
+                        path={browserPath}
+                        isDisabled={isFormDisabled}
+                        onPathChange={setBrowserPath}
+                        onSelectPath={handleBrowserSelect}
+                    />
+                )}
                 onDirectoryChange={handleDirectoryChange}
                 onDirectoryFocus={handleDirectoryFocus}
                 onDirectoryBlur={handleDirectoryBlur}

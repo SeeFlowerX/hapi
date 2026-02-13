@@ -19,6 +19,7 @@ import { MessageService } from './messageService'
 import {
     RpcGateway,
     type RpcCommandResponse,
+    type RpcCreateDirectoryResponse,
     type RpcDeleteUploadResponse,
     type RpcListDirectoryResponse,
     type RpcPathExistsResponse,
@@ -32,6 +33,7 @@ export type { Machine } from './machineCache'
 export type { SyncEventListener } from './eventPublisher'
 export type {
     RpcCommandResponse,
+    RpcCreateDirectoryResponse,
     RpcDeleteUploadResponse,
     RpcListDirectoryResponse,
     RpcPathExistsResponse,
@@ -496,6 +498,14 @@ export class SyncEngine {
 
     async listDirectory(sessionId: string, path: string): Promise<RpcListDirectoryResponse> {
         return await this.rpcGateway.listDirectory(sessionId, path)
+    }
+
+    async listMachineDirectory(machineId: string, path: string): Promise<RpcListDirectoryResponse> {
+        return await this.rpcGateway.listMachineDirectory(machineId, path)
+    }
+
+    async createMachineDirectory(machineId: string, path: string): Promise<RpcCreateDirectoryResponse> {
+        return await this.rpcGateway.createMachineDirectory(machineId, path)
     }
 
     async uploadFile(sessionId: string, filename: string, content: string, mimeType: string): Promise<RpcUploadFileResponse> {

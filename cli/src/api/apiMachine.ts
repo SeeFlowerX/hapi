@@ -77,7 +77,9 @@ export class ApiMachineClient {
             logger: (msg, data) => logger.debug(msg, data)
         })
 
-        registerCommonHandlers(this.rpcHandlerManager, process.cwd())
+        registerCommonHandlers(this.rpcHandlerManager, process.cwd(), {
+            allowOutsideWorkingDirectory: true
+        })
 
         this.rpcHandlerManager.registerHandler<PathExistsRequest, PathExistsResponse>('path-exists', async (params) => {
             const rawPaths = Array.isArray(params?.paths) ? params.paths : []

@@ -1,6 +1,7 @@
 import type {
     AttachmentMetadata,
     AuthResponse,
+    CreateDirectoryResponse,
     DeleteUploadResponse,
     ListDirectoryResponse,
     FileReadResponse,
@@ -372,6 +373,28 @@ export class ApiClient {
             {
                 method: 'POST',
                 body: JSON.stringify({ paths })
+            }
+        )
+    }
+
+    async listMachineDirectory(machineId: string, path?: string): Promise<ListDirectoryResponse> {
+        const params = new URLSearchParams()
+        if (path) {
+            params.set('path', path)
+        }
+
+        const qs = params.toString()
+        return await this.request<ListDirectoryResponse>(
+            `/api/machines/${encodeURIComponent(machineId)}/directory${qs ? `?${qs}` : ''}`
+        )
+    }
+
+    async createMachineDirectory(machineId: string, path: string): Promise<CreateDirectoryResponse> {
+        return await this.request<CreateDirectoryResponse>(
+            `/api/machines/${encodeURIComponent(machineId)}/directory`,
+            {
+                method: 'POST',
+                body: JSON.stringify({ path })
             }
         )
     }

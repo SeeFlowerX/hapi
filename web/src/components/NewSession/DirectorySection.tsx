@@ -1,4 +1,4 @@
-import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
 import type { Suggestion } from '@/hooks/useActiveSuggestions'
 import { Autocomplete } from '@/components/ChatInput/Autocomplete'
 import { FloatingOverlay } from '@/components/ChatInput/FloatingOverlay'
@@ -10,6 +10,10 @@ export function DirectorySection(props: {
     selectedIndex: number
     isDisabled: boolean
     recentPaths: string[]
+    browser?: ReactNode
+    isBrowserOpen?: boolean
+    canBrowse?: boolean
+    onToggleBrowser?: () => void
     onDirectoryChange: (value: string) => void
     onDirectoryFocus: () => void
     onDirectoryBlur: () => void
@@ -18,6 +22,8 @@ export function DirectorySection(props: {
     onPathClick: (path: string) => void
 }) {
     const { t } = useTranslation()
+    const canBrowse = props.canBrowse ?? true
+    const showBrowser = Boolean(props.browser)
 
     return (
         <div className="flex flex-col gap-1.5 px-3 py-3">
@@ -68,6 +74,20 @@ export function DirectorySection(props: {
                     </div>
                 </div>
             )}
+
+            {showBrowser ? (
+                <div className="mt-2 flex flex-col gap-2">
+                    <button
+                        type="button"
+                        onClick={props.onToggleBrowser}
+                        disabled={props.isDisabled || !canBrowse}
+                        className="text-left text-xs font-medium text-[var(--app-link)] disabled:opacity-50"
+                    >
+                        {props.isBrowserOpen ? t('newSession.browse.hide') : t('newSession.browse.show')}
+                    </button>
+                    {props.isBrowserOpen ? props.browser : null}
+                </div>
+            ) : null}
         </div>
     )
 }
