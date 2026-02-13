@@ -170,6 +170,14 @@ export class RpcGateway {
         return await this.sessionRpc(sessionId, 'git-diff-file', options) as RpcCommandResponse
     }
 
+    async getGitLog(sessionId: string, options: { cwd?: string; limit?: number; skip?: number }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-log', options) as RpcCommandResponse
+    }
+
+    async getGitShow(sessionId: string, options: { cwd?: string; commit: string }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-show', options) as RpcCommandResponse
+    }
+
     async readSessionFile(sessionId: string, path: string): Promise<RpcReadFileResponse> {
         return await this.sessionRpc(sessionId, 'readFile', { path }) as RpcReadFileResponse
     }

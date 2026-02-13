@@ -223,6 +223,28 @@ export class ApiClient {
         return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-diff-file?${params.toString()}`)
     }
 
+    async getGitLog(sessionId: string, options?: { limit?: number; skip?: number }): Promise<GitCommandResponse> {
+        const params = new URLSearchParams()
+        if (options?.limit !== undefined) {
+            params.set('limit', `${options.limit}`)
+        }
+        if (options?.skip !== undefined) {
+            params.set('skip', `${options.skip}`)
+        }
+        const qs = params.toString()
+        return await this.request<GitCommandResponse>(
+            `/api/sessions/${encodeURIComponent(sessionId)}/git-log${qs ? `?${qs}` : ''}`
+        )
+    }
+
+    async getGitShow(sessionId: string, commit: string): Promise<GitCommandResponse> {
+        const params = new URLSearchParams()
+        params.set('commit', commit)
+        return await this.request<GitCommandResponse>(
+            `/api/sessions/${encodeURIComponent(sessionId)}/git-show?${params.toString()}`
+        )
+    }
+
     async searchSessionFiles(sessionId: string, query: string, limit?: number): Promise<FileSearchResponse> {
         const params = new URLSearchParams()
         if (query) {

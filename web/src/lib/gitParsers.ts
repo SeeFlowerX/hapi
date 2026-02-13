@@ -38,6 +38,13 @@ export type DiffSummary = {
     changed: number
 }
 
+export type GitLogEntry = {
+    hash: string
+    author: string
+    date: string
+    message: string
+}
+
 const BRANCH_OID_REGEX = /^# branch\.oid (.+)$/
 const BRANCH_HEAD_REGEX = /^# branch\.head (.+)$/
 const BRANCH_UPSTREAM_REGEX = /^# branch\.upstream (.+)$/
@@ -50,6 +57,31 @@ const UNTRACKED_REGEX = /^\? (.+)$/
 const IGNORED_REGEX = /^! (.+)$/
 
 const NUMSTAT_REGEX = /^(\d+|-)\t(\d+|-)\t(.*)$/
+
+const LOG_FIELD_SEPARATOR = '\x1f'
+const LOG_RECORD_SEPARATOR = '\x1e'
+
+export function parseGitLog(output: string): GitLogEntry[] {
+    if (!output) return []
+    const records = output.split(LOG_RECORD_SEPARATOR)
+    const entries: GitLogEntry[] = []
+
+    for (const record of records) {
+        const trimmed = record.trim()
+        if (!trimmed) continue
+        const fields = trimmed.split(LOG_FIELD_SEPARATOR)
+        if (fields.length < 4) continue
+        const [hash, author, date, message] = fields
+        entries.push({
+            hash: hash.trim(),
+            author: author.trim(),
+            date: date.trim(),
+            message: message.trim()
+        })
+    }
+
+    return entries
+}
 
 export function parseStatusSummaryV2(statusOutput: string): GitStatusSummaryV2 {
     const lines = statusOutput.trim().split('\n').filter((line) => line.length > 0)

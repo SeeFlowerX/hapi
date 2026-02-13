@@ -32,6 +32,7 @@ import { useTranslation } from '@/lib/use-translation'
 import { fetchLatestMessages, seedMessageWindowFromSession } from '@/lib/message-window-store'
 import FilesPage from '@/routes/sessions/files'
 import FilePage from '@/routes/sessions/file'
+import CommitPage from '@/routes/sessions/commit'
 import TerminalPage from '@/routes/sessions/terminal'
 import SettingsPage from '@/routes/settings'
 
@@ -413,13 +414,15 @@ const sessionDetailRoute = createRoute({
 const sessionFilesRoute = createRoute({
     getParentRoute: () => sessionDetailRoute,
     path: 'files',
-    validateSearch: (search: Record<string, unknown>): { tab?: 'changes' | 'directories' } => {
+    validateSearch: (search: Record<string, unknown>): { tab?: 'changes' | 'directories' | 'history' } => {
         const tabValue = typeof search.tab === 'string' ? search.tab : undefined
         const tab = tabValue === 'directories'
             ? 'directories'
             : tabValue === 'changes'
                 ? 'changes'
-                : undefined
+                : tabValue === 'history'
+                    ? 'history'
+                    : undefined
 
         return tab ? { tab } : {}
     },
@@ -435,7 +438,7 @@ const sessionTerminalRoute = createRoute({
 type SessionFileSearch = {
     path: string
     staged?: boolean
-    tab?: 'changes' | 'directories'
+    tab?: 'changes' | 'directories' | 'history'
 }
 
 const sessionFileRoute = createRoute({
@@ -454,7 +457,9 @@ const sessionFileRoute = createRoute({
             ? 'directories'
             : tabValue === 'changes'
                 ? 'changes'
-                : undefined
+                : tabValue === 'history'
+                    ? 'history'
+                    : undefined
 
         const result: SessionFileSearch = { path }
         if (staged !== undefined) {
@@ -466,6 +471,34 @@ const sessionFileRoute = createRoute({
         return result
     },
     component: FilePage,
+})
+
+type SessionCommitSearch = {
+    sha: string
+    tab?: 'changes' | 'directories' | 'history'
+}
+
+const sessionCommitRoute = createRoute({
+    getParentRoute: () => sessionDetailRoute,
+    path: 'commit',
+    validateSearch: (search: Record<string, unknown>): SessionCommitSearch => {
+        const sha = typeof search.sha === 'string' ? search.sha : ''
+        const tabValue = typeof search.tab === 'string' ? search.tab : undefined
+        const tab = tabValue === 'directories'
+            ? 'directories'
+            : tabValue === 'changes'
+                ? 'changes'
+                : tabValue === 'history'
+                    ? 'history'
+                    : undefined
+
+        const result: SessionCommitSearch = { sha }
+        if (tab !== undefined) {
+            result.tab = tab
+        }
+        return result
+    },
+    component: CommitPage,
 })
 
 const newSessionRoute = createRoute({
@@ -489,6 +522,7 @@ export const routeTree = rootRoute.addChildren([
             sessionTerminalRoute,
             sessionFilesRoute,
             sessionFileRoute,
+            sessionCommitRoute,
         ]),
     ]),
     settingsRoute,

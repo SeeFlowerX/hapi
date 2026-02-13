@@ -24,6 +24,19 @@ interface GitDiffFileRequest {
     timeout?: number
 }
 
+interface GitLogRequest {
+    cwd?: string
+    limit?: number
+    skip?: number
+    timeout?: number
+}
+
+interface GitShowRequest {
+    cwd?: string
+    commit: string
+    timeout?: number
+}
+
 interface GitCommandResponse {
     success: boolean
     stdout?: string
@@ -127,6 +140,41 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
         const args = data.staged
             ? ['diff', '--cached', '--no-ext-diff', '--', data.filePath]
             : ['diff', '--no-ext-diff', '--', data.filePath]
+        return await runGitCommand(args, resolved.cwd, data.timeout)
+    })
+
+    rpcHandlerManager.registerHandler<GitLogRequest, GitCommandResponse>('git-log', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) {
+            return rpcError(resolved.error)
+        }
+        const limit = Math.min(Math.max(data.limit ?? 50, 1), 200)
+        const skip = Math.max(data.skip ?? 0, 0)
+        const format = '%H%x1f%an%x1f%ad%x1f%s%x1e'
+        const args = [
+            'log',
+            `--max-count=${limit}`,
+            `--skip=${skip}`,
+            '--date=iso',
+            `--pretty=format:${format}`,
+            '--no-color'
+        ]
+        return await runGitCommand(args, resolved.cwd, data.timeout)
+    })
+
+    rpcHandlerManager.registerHandler<GitShowRequest, GitCommandResponse>('git-show', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) {
+            return rpcError(resolved.error)
+        }
+        const commit = data.commit?.trim()
+        if (!commit) {
+            return rpcError('Commit is required')
+        }
+        if (commit.startsWith('-') || /\s/.test(commit)) {
+            return rpcError('Invalid commit reference')
+        }
+        const args = ['show', '--no-color', '--unified=3', commit]
         return await runGitCommand(args, resolved.cwd, data.timeout)
     })
 }

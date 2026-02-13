@@ -8,9 +8,10 @@ import { useAppGoBack } from '@/hooks/useAppGoBack'
 import { useGitStatusFiles } from '@/hooks/queries/useGitStatusFiles'
 import { useSession } from '@/hooks/queries/useSession'
 import { useSessionFileSearch } from '@/hooks/queries/useSessionFileSearch'
+import { parseGitLog, type GitLogEntry } from '@/lib/gitParsers'
 import { encodeBase64 } from '@/lib/utils'
 import { queryKeys } from '@/lib/query-keys'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 function BackIcon(props: { className?: string }) {
     return (
@@ -227,6 +228,43 @@ function FileListSkeleton(props: { label: string; rows?: number }) {
     )
 }
 
+function formatCommitTime(value: string): string {
+    const ms = Date.parse(value)
+    if (!Number.isFinite(ms)) return value
+    const delta = Date.now() - ms
+    if (delta < 60_000) return 'just now'
+    const minutes = Math.floor(delta / 60_000)
+    if (minutes < 60) return `${minutes}m ago`
+    const hours = Math.floor(minutes / 60)
+    if (hours < 24) return `${hours}h ago`
+    const days = Math.floor(hours / 24)
+    if (days < 7) return `${days}d ago`
+    return new Date(ms).toLocaleDateString()
+}
+
+function CommitRow(props: {
+    entry: GitLogEntry
+    onOpen: () => void
+}) {
+    const shortHash = props.entry.hash.slice(0, 8)
+    return (
+        <button
+            type="button"
+            onClick={props.onOpen}
+            className="flex w-full flex-col gap-1 px-3 py-3 text-left hover:bg-[var(--app-subtle-bg)] transition-colors"
+        >
+            <div className="flex items-center justify-between gap-3">
+                <div className="truncate text-sm font-medium">{props.entry.message || 'No message'}</div>
+                <span className="shrink-0 text-xs text-[var(--app-hint)]">{shortHash}</span>
+            </div>
+            <div className="flex items-center justify-between gap-3 text-xs text-[var(--app-hint)]">
+                <span className="truncate">{props.entry.author || 'Unknown'}</span>
+                <span className="shrink-0">{formatCommitTime(props.entry.date)}</span>
+            </div>
+        </button>
+    )
+}
+
 export default function FilesPage() {
     const { api } = useAppContext()
     const navigate = useNavigate()
@@ -237,8 +275,12 @@ export default function FilesPage() {
     const { session } = useSession(api, sessionId)
     const [searchQuery, setSearchQuery] = useState('')
 
-    const initialTab = search.tab === 'directories' ? 'directories' : 'changes'
-    const [activeTab, setActiveTab] = useState<'changes' | 'directories'>(initialTab)
+    const initialTab = search.tab === 'directories'
+        ? 'directories'
+        : search.tab === 'history'
+            ? 'history'
+            : 'changes'
+    const [activeTab, setActiveTab] = useState<'changes' | 'directories' | 'history'>(initialTab)
 
     const {
         status: gitStatus,
@@ -247,11 +289,36 @@ export default function FilesPage() {
         refetch: refetchGit
     } = useGitStatusFiles(api, sessionId)
 
-    const shouldSearch = Boolean(searchQuery)
+    const isSearchDisabled = activeTab === 'history'
+    const shouldSearch = Boolean(searchQuery) && !isSearchDisabled
 
     const searchResults = useSessionFileSearch(api, sessionId, searchQuery, {
         enabled: shouldSearch
     })
+
+    const logLimit = 50
+    const gitLogQuery = useQuery({
+        queryKey: queryKeys.gitLog(sessionId, logLimit, 0),
+        queryFn: async () => {
+            if (!api || !sessionId) {
+                throw new Error('Missing session')
+            }
+            return await api.getGitLog(sessionId, { limit: logLimit })
+        },
+        enabled: Boolean(api && sessionId && activeTab === 'history')
+    })
+
+    const gitLogError = gitLogQuery.data && !gitLogQuery.data.success
+        ? (gitLogQuery.data.error ?? gitLogQuery.data.stderr ?? 'Failed to load history')
+        : gitLogQuery.error instanceof Error
+            ? gitLogQuery.error.message
+            : gitLogQuery.error
+                ? 'Failed to load history'
+                : null
+    const gitLogEntries = useMemo(() => {
+        if (!gitLogQuery.data?.success) return []
+        return parseGitLog(gitLogQuery.data.stdout ?? '')
+    }, [gitLogQuery.data])
 
     const handleOpenFile = useCallback((path: string, staged?: boolean) => {
         const fileSearch = staged === undefined
@@ -268,6 +335,14 @@ export default function FilesPage() {
         })
     }, [activeTab, navigate, sessionId])
 
+    const handleOpenCommit = useCallback((hash: string) => {
+        navigate({
+            to: '/sessions/$sessionId/commit',
+            params: { sessionId },
+            search: { sha: hash, tab: 'history' }
+        })
+    }, [navigate, sessionId])
+
     const branchLabel = gitStatus?.branch ?? 'detached'
     const subtitle = session?.metadata?.path ?? sessionId
     const showGitErrorBanner = Boolean(gitError)
@@ -278,7 +353,14 @@ export default function FilesPage() {
     }, [session?.metadata?.path, sessionId])
 
     const handleRefresh = useCallback(() => {
-        if (searchQuery) {
+        if (activeTab === 'history') {
+            void queryClient.invalidateQueries({
+                queryKey: queryKeys.gitLog(sessionId, logLimit, 0)
+            })
+            return
+        }
+
+        if (searchQuery && !isSearchDisabled) {
             void queryClient.invalidateQueries({
                 queryKey: queryKeys.sessionFiles(sessionId, searchQuery)
             })
@@ -293,9 +375,9 @@ export default function FilesPage() {
         }
 
         void refetchGit()
-    }, [activeTab, queryClient, refetchGit, searchQuery, sessionId])
+    }, [activeTab, queryClient, refetchGit, searchQuery, sessionId, logLimit, isSearchDisabled])
 
-    const handleTabChange = useCallback((nextTab: 'changes' | 'directories') => {
+    const handleTabChange = useCallback((nextTab: 'changes' | 'directories' | 'history') => {
         setActiveTab(nextTab)
         navigate({
             to: '/sessions/$sessionId/files',
@@ -342,13 +424,14 @@ export default function FilesPage() {
                             className="w-full bg-transparent text-sm text-[var(--app-fg)] placeholder:text-[var(--app-hint)] focus:outline-none"
                             autoCapitalize="none"
                             autoCorrect="off"
+                            disabled={isSearchDisabled}
                         />
                     </div>
                 </div>
             </div>
 
             <div className="bg-[var(--app-bg)] border-b border-[var(--app-divider)]" role="tablist">
-                <div className="mx-auto w-full max-w-content grid grid-cols-2">
+                <div className="mx-auto w-full max-w-content grid grid-cols-3">
                     <button
                         type="button"
                         role="tab"
@@ -359,6 +442,18 @@ export default function FilesPage() {
                         Changes
                         <span
                             className={`absolute bottom-0 left-1/2 h-0.5 w-10 -translate-x-1/2 rounded-full ${activeTab === 'changes' ? 'bg-[var(--app-link)]' : 'bg-transparent'}`}
+                        />
+                    </button>
+                    <button
+                        type="button"
+                        role="tab"
+                        aria-selected={activeTab === 'history'}
+                        onClick={() => handleTabChange('history')}
+                        className={`relative py-3 text-center text-sm font-semibold transition-colors hover:bg-[var(--app-subtle-bg)] ${activeTab === 'history' ? 'text-[var(--app-fg)]' : 'text-[var(--app-hint)]'}`}
+                    >
+                        History
+                        <span
+                            className={`absolute bottom-0 left-1/2 h-0.5 w-10 -translate-x-1/2 rounded-full ${activeTab === 'history' ? 'bg-[var(--app-link)]' : 'bg-transparent'}`}
                         />
                     </button>
                     <button
@@ -397,7 +492,25 @@ export default function FilesPage() {
                             {gitError}
                         </div>
                     ) : null}
-                    {shouldSearch ? (
+                    {activeTab === 'history' ? (
+                        gitLogQuery.isLoading ? (
+                            <FileListSkeleton label="Loading history…" />
+                        ) : gitLogError ? (
+                            <div className="p-6 text-sm text-[var(--app-hint)]">{gitLogError}</div>
+                        ) : gitLogEntries.length === 0 ? (
+                            <div className="p-6 text-sm text-[var(--app-hint)]">No commits found.</div>
+                        ) : (
+                            <div className="border-t border-[var(--app-divider)]">
+                                {gitLogEntries.map((entry) => (
+                                    <CommitRow
+                                        key={entry.hash}
+                                        entry={entry}
+                                        onOpen={() => handleOpenCommit(entry.hash)}
+                                    />
+                                ))}
+                            </div>
+                        )
+                    ) : shouldSearch ? (
                         searchResults.isLoading ? (
                             <FileListSkeleton label="Loading files…" />
                         ) : searchResults.error ? (

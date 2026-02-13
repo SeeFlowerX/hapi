@@ -13,6 +13,15 @@ const directorySchema = z.object({
     path: z.string().optional()
 })
 
+const gitLogSchema = z.object({
+    limit: z.coerce.number().int().min(1).max(200).optional(),
+    skip: z.coerce.number().int().min(0).optional()
+})
+
+const gitShowSchema = z.object({
+    commit: z.string().min(1)
+})
+
 const filePathSchema = z.object({
     path: z.string().min(1)
 })
@@ -101,6 +110,63 @@ export function createGitRoutes(getSyncEngine: () => SyncEngine | null): Hono<We
             cwd: sessionPath,
             filePath: parsed.data.path,
             staged
+        }))
+        return c.json(result)
+    })
+
+    app.get('/sessions/:id/git-log', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) {
+            return engine
+        }
+
+        const sessionResult = requireSessionFromParam(c, engine)
+        if (sessionResult instanceof Response) {
+            return sessionResult
+        }
+
+        const sessionPath = sessionResult.session.metadata?.path
+        if (!sessionPath) {
+            return c.json({ success: false, error: 'Session path not available' })
+        }
+
+        const parsed = gitLogSchema.safeParse(c.req.query())
+        if (!parsed.success) {
+            return c.json({ error: 'Invalid query' }, 400)
+        }
+
+        const result = await runRpc(() => engine.getGitLog(sessionResult.sessionId, {
+            cwd: sessionPath,
+            limit: parsed.data.limit,
+            skip: parsed.data.skip
+        }))
+        return c.json(result)
+    })
+
+    app.get('/sessions/:id/git-show', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) {
+            return engine
+        }
+
+        const sessionResult = requireSessionFromParam(c, engine)
+        if (sessionResult instanceof Response) {
+            return sessionResult
+        }
+
+        const sessionPath = sessionResult.session.metadata?.path
+        if (!sessionPath) {
+            return c.json({ success: false, error: 'Session path not available' })
+        }
+
+        const parsed = gitShowSchema.safeParse(c.req.query())
+        if (!parsed.success) {
+            return c.json({ error: 'Invalid query' }, 400)
+        }
+
+        const result = await runRpc(() => engine.getGitShow(sessionResult.sessionId, {
+            cwd: sessionPath,
+            commit: parsed.data.commit
         }))
         return c.json(result)
     })
