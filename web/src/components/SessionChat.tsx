@@ -336,6 +336,7 @@ export function SessionChat(props: {
                     />
 
                     <HappyComposer
+                        sessionId={props.session.id}
                         disabled={props.isSending}
                         permissionMode={props.session.permissionMode}
                         modelMode={props.session.modelMode}

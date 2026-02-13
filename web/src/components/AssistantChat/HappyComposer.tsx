@@ -23,6 +23,7 @@ import { usePWAInstall } from '@/hooks/usePWAInstall'
 import { isCodexFamilyFlavor } from '@/lib/agentFlavorUtils'
 import { CODEX_MODEL_OPTIONS, normalizeCodexModel } from '@/lib/codexModels'
 import { markSkillUsed } from '@/lib/recent-skills'
+import { clearComposerDraft, getComposerDraft, setComposerDraft } from '@/lib/composer-drafts'
 import { FloatingOverlay } from '@/components/ChatInput/FloatingOverlay'
 import { Autocomplete } from '@/components/ChatInput/Autocomplete'
 import { StatusBar } from '@/components/AssistantChat/StatusBar'
@@ -38,6 +39,7 @@ export interface TextInputState {
 const defaultSuggestionHandler = async (): Promise<Suggestion[]> => []
 
 export function HappyComposer(props: {
+    sessionId: string
     disabled?: boolean
     permissionMode?: PermissionMode
     modelMode?: ModelMode
@@ -64,6 +66,7 @@ export function HappyComposer(props: {
 }) {
     const { t } = useTranslation()
     const {
+        sessionId,
         disabled = false,
         permissionMode: rawPermissionMode,
         modelMode: rawModelMode,
@@ -128,6 +131,7 @@ export function HappyComposer(props: {
 
     const textareaRef = useRef<HTMLTextAreaElement>(null)
     const prevControlledByUser = useRef(controlledByUser)
+    const restorePendingRef = useRef(false)
 
     useEffect(() => {
         setInputState((prev) => {
@@ -138,6 +142,26 @@ export function HappyComposer(props: {
             return { text: composerText, selection: { start: newPos, end: newPos } }
         })
     }, [composerText])
+
+    useEffect(() => {
+        if (!sessionId) return
+        restorePendingRef.current = true
+        const draft = getComposerDraft(sessionId)
+        api.composer().setText(draft ?? '')
+        queueMicrotask(() => {
+            restorePendingRef.current = false
+        })
+    }, [sessionId, api])
+
+    useEffect(() => {
+        if (!sessionId) return
+        if (restorePendingRef.current) return
+        if (composerText.length === 0) {
+            clearComposerDraft(sessionId)
+            return
+        }
+        setComposerDraft(sessionId, composerText)
+    }, [composerText, sessionId])
 
     // Track one-time "continue" hint after switching from local to remote.
     useEffect(() => {
