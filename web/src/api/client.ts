@@ -320,6 +320,13 @@ export class ApiClient {
         })
     }
 
+    async setCodexModel(sessionId: string, model: string | null): Promise<void> {
+        await this.request(`/api/sessions/${encodeURIComponent(sessionId)}/codex-model`, {
+            method: 'POST',
+            body: JSON.stringify({ model })
+        })
+    }
+
     async approvePermission(
         sessionId: string,
         requestId: string,

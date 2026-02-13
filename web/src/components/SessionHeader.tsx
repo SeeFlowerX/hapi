@@ -61,6 +61,7 @@ function MoreVerticalIcon(props: { className?: string }) {
 
 export function SessionHeader(props: {
     session: Session
+    codexModelLabel?: string | null
     onBack: () => void
     onViewFiles?: () => void
     api: ApiClient | null
@@ -138,9 +139,15 @@ export function SessionHeader(props: {
                                 <span aria-hidden="true">❖</span>
                                 {session.metadata?.flavor?.trim() || 'unknown'}
                             </span>
-                            <span>
-                                {t('session.item.modelMode')}: {session.modelMode || 'default'}
-                            </span>
+                            {session.metadata?.flavor === 'codex' && props.codexModelLabel ? (
+                                <span>
+                                    {t('session.item.modelMode')}: {props.codexModelLabel}
+                                </span>
+                            ) : (
+                                <span>
+                                    {t('session.item.modelMode')}: {session.modelMode || 'default'}
+                                </span>
+                            )}
                             {worktreeBranch ? (
                                 <span>{t('session.item.worktree')}: {worktreeBranch}</span>
                             ) : null}

@@ -14,6 +14,10 @@ const modelModeSchema = z.object({
     model: ModelModeSchema
 })
 
+const codexModelSchema = z.object({
+    model: z.string().min(1).nullable()
+})
+
 const renameSessionSchema = z.object({
     name: z.string().min(1).max(255)
 })
@@ -283,6 +287,43 @@ export function createSessionsRoutes(getSyncEngine: () => SyncEngine | null): Ho
             return c.json({ ok: true })
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Failed to apply model mode'
+            return c.json({ error: message }, 409)
+        }
+    })
+
+    app.post('/sessions/:id/codex-model', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) {
+            return engine
+        }
+
+        const sessionResult = requireSessionFromParam(c, engine, { requireActive: true })
+        if (sessionResult instanceof Response) {
+            return sessionResult
+        }
+
+        const body = await c.req.json().catch(() => null)
+        const parsed = codexModelSchema.safeParse(body)
+        if (!parsed.success) {
+            return c.json({ error: 'Invalid body' }, 400)
+        }
+
+        const flavor = sessionResult.session.metadata?.flavor ?? 'claude'
+        if (flavor !== 'codex') {
+            return c.json({ error: 'Codex model is only supported for Codex sessions' }, 400)
+        }
+
+        const rawModel = parsed.data.model
+        const model = rawModel === null ? null : rawModel.trim()
+        if (rawModel !== null && model.length === 0) {
+            return c.json({ error: 'Invalid model' }, 400)
+        }
+
+        try {
+            const appliedModel = await engine.applyCodexModel(sessionResult.sessionId, model)
+            return c.json({ ok: true, model: appliedModel })
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Failed to apply Codex model'
             return c.json({ error: message }, 409)
         }
     })

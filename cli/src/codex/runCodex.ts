@@ -50,7 +50,7 @@ export async function runCodex(opts: {
     const sessionWrapperRef: { current: CodexSession | null } = { current: null };
 
     let currentPermissionMode: PermissionMode = opts.permissionMode ?? 'default';
-    const currentModel = opts.model;
+    let currentModel: string | undefined = opts.model;
     let currentCollaborationMode: EnhancedMode['collaborationMode'];
 
     const lifecycle = createRunnerLifecycle({
@@ -118,7 +118,7 @@ export async function runCodex(opts: {
         if (!payload || typeof payload !== 'object') {
             throw new Error('Invalid session config payload');
         }
-        const config = payload as { permissionMode?: unknown; collaborationMode?: unknown };
+        const config = payload as { permissionMode?: unknown; collaborationMode?: unknown; model?: unknown };
 
         if (config.permissionMode !== undefined) {
             currentPermissionMode = resolvePermissionMode(config.permissionMode);
@@ -128,8 +128,23 @@ export async function runCodex(opts: {
             currentCollaborationMode = resolveCollaborationMode(config.collaborationMode);
         }
 
+        if (config.model !== undefined) {
+            if (config.model === null) {
+                currentModel = undefined;
+            } else if (typeof config.model !== 'string') {
+                throw new Error('Invalid model');
+            } else {
+                const trimmed = config.model.trim();
+                if (!trimmed || trimmed === 'auto') {
+                    currentModel = undefined;
+                } else {
+                    currentModel = trimmed;
+                }
+            }
+        }
+
         syncSessionMode();
-        return { applied: { permissionMode: currentPermissionMode, collaborationMode: currentCollaborationMode } };
+        return { applied: { permissionMode: currentPermissionMode, collaborationMode: currentCollaborationMode, model: currentModel } };
     });
 
     try {

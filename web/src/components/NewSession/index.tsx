@@ -7,6 +7,7 @@ import { useSessions } from '@/hooks/queries/useSessions'
 import { useActiveSuggestions, type Suggestion } from '@/hooks/useActiveSuggestions'
 import { useDirectorySuggestions } from '@/hooks/useDirectorySuggestions'
 import { useRecentPaths } from '@/hooks/useRecentPaths'
+import { normalizeCodexModel } from '@/lib/codexModels'
 import type { AgentType, SessionType } from './types'
 import { ActionButtons } from './ActionButtons'
 import { AgentSelector } from './AgentSelector'
@@ -222,6 +223,14 @@ export function NewSession(props: {
 
             if (result.type === 'success') {
                 haptic.notification('success')
+                if (agent === 'codex') {
+                    const resolvedModel = normalizeCodexModel(model)
+                    try {
+                        await props.api.setCodexModel(result.sessionId, resolvedModel)
+                    } catch (error) {
+                        console.error('Failed to sync Codex model to session cache:', error)
+                    }
+                }
                 setLastUsedMachineId(machineId)
                 addRecentPath(machineId, directory.trim())
                 props.onSuccess(result.sessionId)

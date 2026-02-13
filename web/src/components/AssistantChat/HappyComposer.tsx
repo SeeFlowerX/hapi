@@ -21,6 +21,7 @@ import { applySuggestion } from '@/utils/applySuggestion'
 import { usePlatform } from '@/hooks/usePlatform'
 import { usePWAInstall } from '@/hooks/usePWAInstall'
 import { isCodexFamilyFlavor } from '@/lib/agentFlavorUtils'
+import { CODEX_MODEL_OPTIONS, normalizeCodexModel } from '@/lib/codexModels'
 import { markSkillUsed } from '@/lib/recent-skills'
 import { FloatingOverlay } from '@/components/ChatInput/FloatingOverlay'
 import { Autocomplete } from '@/components/ChatInput/Autocomplete'
@@ -40,6 +41,7 @@ export function HappyComposer(props: {
     disabled?: boolean
     permissionMode?: PermissionMode
     modelMode?: ModelMode
+    codexModel?: string | null
     active?: boolean
     allowSendWhenInactive?: boolean
     thinking?: boolean
@@ -49,6 +51,7 @@ export function HappyComposer(props: {
     agentFlavor?: string | null
     onPermissionModeChange?: (mode: PermissionMode) => void
     onModelModeChange?: (mode: ModelMode) => void
+    onCodexModelChange?: (model: string | null) => void
     onSwitchToRemote?: () => void
     onTerminal?: () => void
     autocompletePrefixes?: string[]
@@ -64,6 +67,7 @@ export function HappyComposer(props: {
         disabled = false,
         permissionMode: rawPermissionMode,
         modelMode: rawModelMode,
+        codexModel: rawCodexModel,
         active = true,
         allowSendWhenInactive = false,
         thinking = false,
@@ -73,6 +77,7 @@ export function HappyComposer(props: {
         agentFlavor,
         onPermissionModeChange,
         onModelModeChange,
+        onCodexModelChange,
         onSwitchToRemote,
         onTerminal,
         autocompletePrefixes = ['@', '/', '$'],
@@ -86,6 +91,9 @@ export function HappyComposer(props: {
     // Use ?? so missing values fall back to default (destructuring defaults only handle undefined)
     const permissionMode = rawPermissionMode ?? 'default'
     const modelMode = rawModelMode ?? 'default'
+    const isCodexFlavor = agentFlavor === 'codex'
+    const codexModel = normalizeCodexModel(rawCodexModel)
+    const codexModelValue = codexModel ?? 'auto'
 
     const api = useAssistantApi()
     const composerText = useAssistantState(({ composer }) => composer.text)
@@ -324,18 +332,29 @@ export function HappyComposer(props: {
 
     useEffect(() => {
         const handleGlobalKeyDown = (e: globalThis.KeyboardEvent) => {
-            if (e.key === 'm' && (e.metaKey || e.ctrlKey) && onModelModeChange && !isCodexFamilyFlavor(agentFlavor)) {
+            if (e.key !== 'm' || !(e.metaKey || e.ctrlKey)) return
+            if (isCodexFlavor) {
+                if (!onCodexModelChange) return
                 e.preventDefault()
-                const currentIndex = MODEL_MODES.indexOf(modelMode as typeof MODEL_MODES[number])
-                const nextIndex = (currentIndex + 1) % MODEL_MODES.length
-                onModelModeChange(MODEL_MODES[nextIndex])
+                const options = CODEX_MODEL_OPTIONS.map((option) => option.value)
+                const currentIndex = options.indexOf(codexModelValue)
+                const nextIndex = (currentIndex + 1) % options.length
+                const nextValue = options[nextIndex] ?? 'auto'
+                onCodexModelChange(nextValue === 'auto' ? null : nextValue)
                 haptic('light')
+                return
             }
+            if (!onModelModeChange) return
+            e.preventDefault()
+            const currentIndex = MODEL_MODES.indexOf(modelMode as typeof MODEL_MODES[number])
+            const nextIndex = (currentIndex + 1) % MODEL_MODES.length
+            onModelModeChange(MODEL_MODES[nextIndex])
+            haptic('light')
         }
 
         window.addEventListener('keydown', handleGlobalKeyDown)
         return () => window.removeEventListener('keydown', handleGlobalKeyDown)
-    }, [modelMode, onModelModeChange, haptic, agentFlavor])
+    }, [modelMode, codexModelValue, onModelModeChange, onCodexModelChange, haptic, isCodexFlavor])
 
     const handleChange = useCallback((e: ReactChangeEvent<HTMLTextAreaElement>) => {
         const selection = {
@@ -397,9 +416,17 @@ export function HappyComposer(props: {
         haptic('light')
     }, [onModelModeChange, controlsDisabled, haptic])
 
+    const handleCodexModelChange = useCallback((model: string | null) => {
+        if (!onCodexModelChange || controlsDisabled) return
+        onCodexModelChange(model)
+        setShowSettings(false)
+        haptic('light')
+    }, [onCodexModelChange, controlsDisabled, haptic])
+
     const showPermissionSettings = Boolean(onPermissionModeChange && permissionModeOptions.length > 0)
     const showModelSettings = Boolean(onModelModeChange && !isCodexFamilyFlavor(agentFlavor))
-    const showSettingsButton = Boolean(showPermissionSettings || showModelSettings)
+    const showCodexModelSettings = Boolean(onCodexModelChange && isCodexFlavor)
+    const showSettingsButton = Boolean(showPermissionSettings || showModelSettings || showCodexModelSettings)
     const showAbortButton = true
     const voiceEnabled = Boolean(onVoiceToggle)
 
@@ -408,7 +435,7 @@ export function HappyComposer(props: {
     }, [api])
 
     const overlays = useMemo(() => {
-        if (showSettings && (showPermissionSettings || showModelSettings)) {
+        if (showSettings && (showPermissionSettings || showModelSettings || showCodexModelSettings)) {
             return (
                 <div className="absolute bottom-[100%] mb-2 w-full">
                     <FloatingOverlay maxHeight={320}>
@@ -449,7 +476,7 @@ export function HappyComposer(props: {
                             </div>
                         ) : null}
 
-                        {showPermissionSettings && showModelSettings ? (
+                        {showPermissionSettings && (showModelSettings || showCodexModelSettings) ? (
                             <div className="mx-3 h-px bg-[var(--app-divider)]" />
                         ) : null}
 
@@ -489,6 +516,43 @@ export function HappyComposer(props: {
                                 ))}
                             </div>
                         ) : null}
+
+                        {showCodexModelSettings ? (
+                            <div className="py-2">
+                                <div className="px-3 pb-1 text-xs font-semibold text-[var(--app-hint)]">
+                                    {t('misc.model')}
+                                </div>
+                                {CODEX_MODEL_OPTIONS.map((option) => (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        disabled={controlsDisabled}
+                                        className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
+                                            controlsDisabled
+                                                ? 'cursor-not-allowed opacity-50'
+                                                : 'cursor-pointer hover:bg-[var(--app-secondary-bg)]'
+                                        }`}
+                                        onClick={() => handleCodexModelChange(option.value === 'auto' ? null : option.value)}
+                                        onMouseDown={(e) => e.preventDefault()}
+                                    >
+                                        <div
+                                            className={`flex h-4 w-4 items-center justify-center rounded-full border-2 ${
+                                                codexModelValue === option.value
+                                                    ? 'border-[var(--app-link)]'
+                                                    : 'border-[var(--app-hint)]'
+                                            }`}
+                                        >
+                                            {codexModelValue === option.value && (
+                                                <div className="h-2 w-2 rounded-full bg-[var(--app-link)]" />
+                                            )}
+                                        </div>
+                                        <span className={codexModelValue === option.value ? 'text-[var(--app-link)]' : ''}>
+                                            {option.label}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        ) : null}
                     </FloatingOverlay>
                 </div>
             )
@@ -513,14 +577,17 @@ export function HappyComposer(props: {
         showSettings,
         showPermissionSettings,
         showModelSettings,
+        showCodexModelSettings,
         suggestions,
         selectedIndex,
         controlsDisabled,
         permissionMode,
         modelMode,
+        codexModelValue,
         permissionModeOptions,
         handlePermissionChange,
         handleModelChange,
+        handleCodexModelChange,
         handleSuggestionSelect
     ])
 

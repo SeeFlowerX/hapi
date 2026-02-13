@@ -120,7 +120,8 @@ export class SessionCache {
             thinkingAt: existing?.thinkingAt ?? 0,
             todos,
             permissionMode: existing?.permissionMode,
-            modelMode: existing?.modelMode
+            modelMode: existing?.modelMode,
+            codexModel: existing?.codexModel
         }
 
         this.sessions.set(sessionId, session)
@@ -233,6 +234,26 @@ export class SessionCache {
         this.publisher.emit({ type: 'session-updated', sessionId, data: session })
     }
 
+    applyCodexModel(sessionId: string, model: string | null): void {
+        const session = this.sessions.get(sessionId) ?? this.refreshSession(sessionId)
+        if (!session) {
+            return
+        }
+
+        const next = model ?? undefined
+        if (session.codexModel === next) {
+            return
+        }
+
+        session.codexModel = next
+
+        this.publisher.emit({
+            type: 'session-updated',
+            sessionId,
+            data: { codexModel: session.codexModel }
+        })
+    }
+
     async renameSession(sessionId: string, name: string): Promise<void> {
         const session = this.sessions.get(sessionId)
         if (!session) {
@@ -287,7 +308,7 @@ export class SessionCache {
         oldSessionId: string,
         newSessionId: string,
         namespace: string,
-        options?: { inheritModes?: boolean }
+        options?: { inheritModes?: boolean; inheritCodexModel?: boolean }
     ): Promise<void> {
         if (oldSessionId === newSessionId) {
             return
@@ -296,7 +317,9 @@ export class SessionCache {
         const oldSession = this.sessions.get(oldSessionId)
         const oldPermissionMode = oldSession?.permissionMode
         const oldModelMode = oldSession?.modelMode
+        const oldCodexModel = oldSession?.codexModel
         const shouldInheritModes = options?.inheritModes === true
+        const shouldInheritCodexModel = options?.inheritCodexModel === true
 
         const oldStored = this.store.sessions.getSessionByNamespace(oldSessionId, namespace)
         const newStored = this.store.sessions.getSessionByNamespace(newSessionId, namespace)
@@ -349,7 +372,7 @@ export class SessionCache {
         this.todoBackfillAttemptedSessionIds.delete(oldSessionId)
 
         const refreshed = this.refreshSession(newSessionId)
-        if (refreshed && shouldInheritModes) {
+        if (refreshed && (shouldInheritModes || shouldInheritCodexModel)) {
             let changed = false
             if (oldPermissionMode !== undefined && refreshed.permissionMode === undefined) {
                 refreshed.permissionMode = oldPermissionMode
@@ -359,13 +382,18 @@ export class SessionCache {
                 refreshed.modelMode = oldModelMode
                 changed = true
             }
+            if (oldCodexModel !== undefined && refreshed.codexModel === undefined && shouldInheritCodexModel) {
+                refreshed.codexModel = oldCodexModel
+                changed = true
+            }
             if (changed) {
                 this.publisher.emit({
                     type: 'session-updated',
                     sessionId: newSessionId,
                     data: {
                         permissionMode: refreshed.permissionMode,
-                        modelMode: refreshed.modelMode
+                        modelMode: refreshed.modelMode,
+                        codexModel: refreshed.codexModel
                     }
                 })
             }

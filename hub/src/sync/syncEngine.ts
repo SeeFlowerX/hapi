@@ -298,6 +298,30 @@ export class SyncEngine {
         this.sessionCache.applySessionConfig(sessionId, applied)
     }
 
+    async applyCodexModel(sessionId: string, model: string | null): Promise<string | null> {
+        const result = await this.rpcGateway.requestSessionConfig(sessionId, { model })
+        if (!result || typeof result !== 'object') {
+            throw new Error('Invalid response from session config RPC')
+        }
+        const obj = result as { applied?: { model?: unknown } }
+        const applied = obj.applied
+        if (!applied || typeof applied !== 'object') {
+            throw new Error('Missing applied session config')
+        }
+        const appliedModel = (applied as { model?: unknown }).model
+        if (appliedModel === null || appliedModel === undefined) {
+            this.sessionCache.applyCodexModel(sessionId, null)
+            return null
+        }
+        if (typeof appliedModel !== 'string') {
+            throw new Error('Invalid applied model')
+        }
+        const trimmed = appliedModel.trim()
+        const normalized = trimmed.length > 0 ? trimmed : null
+        this.sessionCache.applyCodexModel(sessionId, normalized)
+        return normalized
+    }
+
     async spawnSession(
         machineId: string,
         directory: string,
@@ -324,6 +348,7 @@ export class SyncEngine {
         const session = access.session
         const previousPermissionMode = session.permissionMode
         const previousModelMode = session.modelMode
+        const previousCodexModel = session.codexModel
         if (session.active) {
             return { type: 'success', sessionId: access.sessionId }
         }
@@ -411,10 +436,22 @@ export class SyncEngine {
             console.debug('[resume] Reapplied session config to resumed session')
         }
 
+        let codexModelApplied = false
+        if (previousCodexModel !== undefined && flavor === 'codex') {
+            try {
+                await this.applyCodexModel(spawnResult.sessionId, previousCodexModel)
+                codexModelApplied = true
+                console.debug('[resume] Reapplied Codex model to resumed session')
+            } catch (error) {
+                console.warn('[resume] Failed to reapply Codex model', error)
+            }
+        }
+
         if (spawnResult.sessionId !== access.sessionId) {
             try {
                 await this.sessionCache.mergeSessions(access.sessionId, spawnResult.sessionId, namespace, {
-                    inheritModes: configApplied
+                    inheritModes: configApplied,
+                    inheritCodexModel: codexModelApplied
                 })
             } catch (error) {
                 const message = error instanceof Error ? error.message : 'Failed to merge resumed session'

@@ -17,6 +17,7 @@ import { usePlatform } from '@/hooks/usePlatform'
 import { useSessionActions } from '@/hooks/mutations/useSessionActions'
 import { useVoiceOptional } from '@/lib/voice-context'
 import { RealtimeVoiceSession, registerSessionStore, registerVoiceHooksStore, voiceHooks } from '@/realtime'
+import { getCodexModelLabel, normalizeCodexModel } from '@/lib/codexModels'
 
 export function SessionChat(props: {
     api: ApiClient
@@ -45,11 +46,15 @@ export function SessionChat(props: {
     const blocksByIdRef = useRef<Map<string, ChatBlock>>(new Map())
     const [forceScrollToken, setForceScrollToken] = useState(0)
     const agentFlavor = props.session.metadata?.flavor ?? null
-    const { abortSession, switchSession, setPermissionMode, setModelMode } = useSessionActions(
+    const { abortSession, switchSession, setPermissionMode, setModelMode, setCodexModel } = useSessionActions(
         props.api,
         props.session.id,
         agentFlavor
     )
+    const isCodex = agentFlavor === 'codex'
+    const [codexModel, setCodexModelState] = useState<string | null>(() => (
+        isCodex ? normalizeCodexModel(props.session.codexModel) : null
+    ))
 
     // Voice assistant integration
     const voice = useVoiceOptional()
@@ -149,6 +154,14 @@ export function SessionChat(props: {
         blocksByIdRef.current.clear()
     }, [props.session.id])
 
+    useEffect(() => {
+        if (!isCodex) {
+            setCodexModelState(null)
+            return
+        }
+        setCodexModelState(normalizeCodexModel(props.session.codexModel))
+    }, [props.session.id, props.session.codexModel, isCodex])
+
     const normalizedMessages: NormalizedMessage[] = useMemo(() => {
         // Clear caches immediately when session changes (before useEffect runs)
         if (prevSessionIdRef.current !== null && prevSessionIdRef.current !== props.session.id) {
@@ -216,6 +229,20 @@ export function SessionChat(props: {
         }
     }, [setModelMode, props.onRefresh, haptic])
 
+    const handleCodexModelChange = useCallback(async (model: string | null) => {
+        if (!isCodex) return
+        const normalized = normalizeCodexModel(model)
+        try {
+            await setCodexModel(normalized)
+            setCodexModelState(normalized)
+            haptic.notification('success')
+            props.onRefresh()
+        } catch (e) {
+            haptic.notification('error')
+            console.error('Failed to set codex model:', e)
+        }
+    }, [isCodex, setCodexModel, props.session.id, props.onRefresh, haptic])
+
     // Abort handler
     const handleAbort = useCallback(async () => {
         await abortSession()
@@ -268,6 +295,7 @@ export function SessionChat(props: {
         <div className="flex h-full flex-col">
             <SessionHeader
                 session={props.session}
+                codexModelLabel={isCodex ? getCodexModelLabel(codexModel) : null}
                 onBack={props.onBack}
                 onViewFiles={props.session.metadata?.path ? handleViewFiles : undefined}
                 api={props.api}
@@ -310,6 +338,7 @@ export function SessionChat(props: {
                         disabled={props.isSending}
                         permissionMode={props.session.permissionMode}
                         modelMode={props.session.modelMode}
+                        codexModel={codexModel}
                         agentFlavor={agentFlavor}
                         active={props.session.active}
                         allowSendWhenInactive
@@ -319,6 +348,7 @@ export function SessionChat(props: {
                         controlledByUser={props.session.agentState?.controlledByUser === true}
                         onPermissionModeChange={handlePermissionModeChange}
                         onModelModeChange={handleModelModeChange}
+                        onCodexModelChange={handleCodexModelChange}
                         onSwitchToRemote={handleSwitchToRemote}
                         onTerminal={props.session.active ? handleViewTerminal : undefined}
                         autocompleteSuggestions={props.autocompleteSuggestions}

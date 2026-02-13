@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { SessionSummary } from '@/types/api'
+import { getCodexModelLabel } from '@/lib/codexModels'
 import type { ApiClient } from '@/api/client'
 import { useLongPress } from '@/hooks/useLongPress'
 import { usePlatform } from '@/hooks/usePlatform'
@@ -259,7 +260,11 @@ function SessionItem(props: {
                         </span>
                         {getAgentLabel(s)}
                     </span>
-                    <span>{t('session.item.modelMode')}: {s.modelMode || 'default'}</span>
+                    <span>
+                        {t('session.item.modelMode')}: {s.metadata?.flavor === 'codex'
+                            ? getCodexModelLabel(s.codexModel)
+                            : (s.modelMode || 'default')}
+                    </span>
                     {s.metadata?.worktree?.branch ? (
                         <span>{t('session.item.worktree')}: {s.metadata.worktree.branch}</span>
                     ) : null}

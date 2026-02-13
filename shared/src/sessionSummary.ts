@@ -20,6 +20,7 @@ export type SessionSummary = {
     todoProgress: { completed: number; total: number } | null
     pendingRequestsCount: number
     modelMode?: ModelMode
+    codexModel?: string
 }
 
 export function toSessionSummary(session: Session): SessionSummary {
@@ -48,6 +49,7 @@ export function toSessionSummary(session: Session): SessionSummary {
         metadata,
         todoProgress,
         pendingRequestsCount,
-        modelMode: session.modelMode
+        modelMode: session.modelMode,
+        codexModel: session.codexModel
     }
 }
