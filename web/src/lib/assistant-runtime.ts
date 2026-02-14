@@ -18,14 +18,23 @@ export type HappyChatMessageMetadata = {
     attachments?: AttachmentMetadata[]
 }
 
+function normalizeAttachmentText(text: string, attachments?: AttachmentMetadata[]): string {
+    if (text.length > 0) return text
+    if (attachments && attachments.length > 0) {
+        return '\u2060'
+    }
+    return text
+}
+
 function toThreadMessageLike(block: ChatBlock): ThreadMessageLike {
     if (block.kind === 'user-text') {
         const messageId = `user:${block.id}`
+        const text = normalizeAttachmentText(block.text, block.attachments)
         return {
             role: 'user',
             id: messageId,
             createdAt: new Date(block.createdAt),
-            content: [{ type: 'text', text: block.text }],
+            content: [{ type: 'text', text }],
             metadata: {
                 custom: {
                     kind: 'user',
@@ -40,11 +49,12 @@ function toThreadMessageLike(block: ChatBlock): ThreadMessageLike {
 
     if (block.kind === 'agent-text') {
         const messageId = `assistant:${block.id}`
+        const text = normalizeAttachmentText(block.text, block.attachments)
         return {
             role: 'assistant',
             id: messageId,
             createdAt: new Date(block.createdAt),
-            content: [{ type: 'text', text: block.text }],
+            content: [{ type: 'text', text }],
             metadata: {
                 custom: { kind: 'assistant', attachments: block.attachments } satisfies HappyChatMessageMetadata
             }
