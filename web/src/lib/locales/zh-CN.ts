@@ -59,6 +59,19 @@ export default {
   // Session header
   'session.title': '文件',
   'session.more': '更多操作',
+  'worktree.create.button': '工作树',
+  'worktree.create.title': '新建工作树会话',
+  'worktree.create.placeholder': 'feature-x（必填）',
+  'worktree.create.submit': '新建',
+  'worktree.create.submitting': '新建中…',
+  'worktree.create.unavailable.title': '无法新建工作树会话',
+  'worktree.create.unavailable.notGit': '当前目录不是 Git 仓库。',
+  'worktree.create.unavailable.worktree': '当前会话已是工作树，不能再创建。',
+  'worktree.create.unavailable.checking': '正在检测 Git 状态…',
+  'worktree.create.unavailable.path': '会话目录不可用。',
+  'worktree.create.unavailable.machine': '机器信息不可用。',
+  'worktree.create.unavailable.flavor': '会话代理类型不支持。',
+  'worktree.create.unavailable.api': 'API 不可用。',
 
   // Session actions
   'session.action.rename': '重命名',

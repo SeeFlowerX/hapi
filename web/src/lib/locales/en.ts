@@ -59,6 +59,19 @@ export default {
   // Session header
   'session.title': 'Files',
   'session.more': 'More actions',
+  'worktree.create.button': 'Worktree',
+  'worktree.create.title': 'Create worktree session',
+  'worktree.create.placeholder': 'feature-x (required)',
+  'worktree.create.submit': 'Create',
+  'worktree.create.submitting': 'Creating…',
+  'worktree.create.unavailable.title': 'Cannot create worktree',
+  'worktree.create.unavailable.notGit': 'Current directory is not a Git repository.',
+  'worktree.create.unavailable.worktree': 'Current session is already a worktree.',
+  'worktree.create.unavailable.checking': 'Checking Git status…',
+  'worktree.create.unavailable.path': 'Session path is unavailable.',
+  'worktree.create.unavailable.machine': 'Machine is unavailable.',
+  'worktree.create.unavailable.flavor': 'Session agent type is unsupported.',
+  'worktree.create.unavailable.api': 'API is unavailable.',
 
   // Session actions
   'session.action.rename': 'Rename',
