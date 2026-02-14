@@ -213,6 +213,7 @@ export async function startWebServer(options: {
     relayMode?: boolean
     officialWebUrl?: string
 }): Promise<BunServer<WebSocketData>> {
+    const MAX_REQUEST_BODY_BYTES = 50 * 1024 * 1024
     const isCompiled = isBunCompiled()
     const embeddedAssetMap = isCompiled ? await loadEmbeddedAssetMap() : null
     const app = createWebApp({
@@ -234,7 +235,7 @@ export async function startWebServer(options: {
         hostname: configuration.listenHost,
         port: configuration.listenPort,
         idleTimeout: Math.max(30, socketHandler.idleTimeout),
-        maxRequestBodySize: socketHandler.maxRequestBodySize,
+        maxRequestBodySize: Math.max(socketHandler.maxRequestBodySize, MAX_REQUEST_BODY_BYTES),
         websocket: socketHandler.websocket,
         fetch: (req, server) => {
             const url = new URL(req.url)
