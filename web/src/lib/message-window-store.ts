@@ -236,6 +236,36 @@ function filterPendingAgainstVisible(pending: DecryptedMessage[], visible: Decry
     return pending.filter((message) => !visibleIds.has(message.id))
 }
 
+function splitIncomingByVisibility(
+    visible: DecryptedMessage[],
+    incoming: DecryptedMessage[]
+): { updates: DecryptedMessage[]; remaining: DecryptedMessage[] } {
+    if (incoming.length === 0 || visible.length === 0) {
+        return { updates: [], remaining: incoming }
+    }
+    const visibleIds = new Set(visible.map((message) => message.id))
+    const updates: DecryptedMessage[] = []
+    const remaining: DecryptedMessage[] = []
+    for (const message of incoming) {
+        if (visibleIds.has(message.id)) {
+            updates.push(message)
+        } else {
+            remaining.push(message)
+        }
+    }
+    return { updates, remaining }
+}
+
+function applyVisibleUpdates(
+    visible: DecryptedMessage[],
+    updates: DecryptedMessage[]
+): DecryptedMessage[] {
+    if (updates.length === 0) {
+        return visible
+    }
+    return mergeMessages(visible, updates)
+}
+
 function isOptimisticMessage(message: DecryptedMessage): boolean {
     return Boolean(message.localId && message.id === message.localId)
 }
@@ -341,8 +371,11 @@ export async function fetchLatestMessages(api: ApiClient, sessionId: string): Pr
                     warning: null,
                 })
             }
-            const pendingResult = mergeIntoPending(prev, response.messages)
+            const { updates, remaining } = splitIncomingByVisibility(prev.messages, response.messages)
+            const messages = applyVisibleUpdates(prev.messages, updates)
+            const pendingResult = mergeIntoPending({ ...prev, messages }, remaining)
             return buildState(prev, {
+                messages,
                 pending: pendingResult.pending,
                 pendingVisibleCount: pendingResult.pendingVisibleCount,
                 pendingOverflowCount: pendingResult.pendingOverflowCount,
@@ -395,8 +428,11 @@ export function ingestIncomingMessages(sessionId: string, incoming: DecryptedMes
             const pending = filterPendingAgainstVisible(prev.pending, trimmed)
             return buildState(prev, { messages: trimmed, pending })
         }
-        const pendingResult = mergeIntoPending(prev, incoming)
+        const { updates, remaining } = splitIncomingByVisibility(prev.messages, incoming)
+        const messages = applyVisibleUpdates(prev.messages, updates)
+        const pendingResult = mergeIntoPending({ ...prev, messages }, remaining)
         return buildState(prev, {
+            messages,
             pending: pendingResult.pending,
             pendingVisibleCount: pendingResult.pendingVisibleCount,
             pendingOverflowCount: pendingResult.pendingOverflowCount,

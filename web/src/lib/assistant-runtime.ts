@@ -1,11 +1,12 @@
 import { useCallback, useMemo } from 'react'
-import type { AppendMessage, AttachmentAdapter, ThreadMessageLike } from '@assistant-ui/react'
+import type { AppendMessage, AttachmentAdapter } from '@assistant-ui/react'
 import { useExternalMessageConverter, useExternalStoreRuntime } from '@assistant-ui/react'
 import { safeStringify } from '@hapi/protocol'
 import { renderEventLabel } from '@/chat/presentation'
 import type { ChatBlock, CliOutputBlock } from '@/chat/types'
 import type { AgentEvent, ToolCallBlock } from '@/chat/types'
 import type { AttachmentMetadata, MessageStatus as HappyMessageStatus, Session } from '@/types/api'
+import { createAttachmentPart } from '@/lib/attachmentParts'
 
 export type HappyChatMessageMetadata = {
     kind: 'user' | 'assistant' | 'tool' | 'event' | 'cli-output'
@@ -18,45 +19,60 @@ export type HappyChatMessageMetadata = {
     attachments?: AttachmentMetadata[]
 }
 
-function normalizeAttachmentText(text: string, attachments?: AttachmentMetadata[]): string {
-    if (text.length > 0) return text
-    if (attachments && attachments.length > 0) {
-        return '\u2060'
-    }
-    return text
-}
+type ExternalMessage = import('@assistant-ui/react').useExternalMessageConverter.Message
 
-function toThreadMessageLike(block: ChatBlock): ThreadMessageLike {
+function toThreadMessageLike(block: ChatBlock): ExternalMessage {
     if (block.kind === 'user-text') {
         const messageId = `user:${block.id}`
-        const text = normalizeAttachmentText(block.text, block.attachments)
+        const text = block.text
+        const parts: Array<{ type: 'text'; text: string } | ReturnType<typeof createAttachmentPart>> = []
+        if (text.length > 0) {
+            parts.push({ type: 'text', text })
+        }
+        if (block.attachments && block.attachments.length > 0) {
+            parts.push(createAttachmentPart(block.attachments))
+        }
+        if (parts.length === 0) {
+            parts.push({ type: 'text', text: '' })
+        }
+        const custom: HappyChatMessageMetadata = {
+            kind: 'user',
+            status: block.status,
+            localId: block.localId,
+            originalText: block.originalText
+        }
         return {
             role: 'user',
             id: messageId,
             createdAt: new Date(block.createdAt),
-            content: [{ type: 'text', text }],
+            content: parts,
             metadata: {
-                custom: {
-                    kind: 'user',
-                    status: block.status,
-                    localId: block.localId,
-                    originalText: block.originalText,
-                    attachments: block.attachments
-                } satisfies HappyChatMessageMetadata
+                custom: custom satisfies HappyChatMessageMetadata
             }
         }
     }
 
     if (block.kind === 'agent-text') {
         const messageId = `assistant:${block.id}`
-        const text = normalizeAttachmentText(block.text, block.attachments)
+        const text = block.text
+        const parts: Array<{ type: 'text'; text: string } | ReturnType<typeof createAttachmentPart>> = []
+        if (text.length > 0) {
+            parts.push({ type: 'text', text })
+        }
+        if (block.attachments && block.attachments.length > 0) {
+            parts.push(createAttachmentPart(block.attachments))
+        }
+        if (parts.length === 0) {
+            parts.push({ type: 'text', text: '' })
+        }
+        const custom: HappyChatMessageMetadata = { kind: 'assistant' }
         return {
             role: 'assistant',
             id: messageId,
             createdAt: new Date(block.createdAt),
-            content: [{ type: 'text', text }],
+            content: parts,
             metadata: {
-                custom: { kind: 'assistant', attachments: block.attachments } satisfies HappyChatMessageMetadata
+                custom: custom satisfies HappyChatMessageMetadata
             }
         }
     }
