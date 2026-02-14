@@ -108,6 +108,8 @@ export default {
   'button.dismiss': '忽略',
   'button.copy': '复制',
   'button.paste': '粘贴',
+  'toast.copy.title': '已复制',
+  'toast.copy.body': '已复制到剪贴板。',
 
   // New session form
   'newSession.machine': '机器',

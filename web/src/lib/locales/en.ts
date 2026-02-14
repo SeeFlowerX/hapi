@@ -106,6 +106,8 @@ export default {
   'button.dismiss': 'Dismiss',
   'button.copy': 'Copy',
   'button.paste': 'Paste',
+  'toast.copy.title': 'Copied',
+  'toast.copy.body': 'Copied to clipboard.',
 
   // New session form
   'newSession.machine': 'Machine',

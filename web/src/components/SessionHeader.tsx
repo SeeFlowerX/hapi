@@ -176,8 +176,17 @@ export function SessionHeader(props: {
 
     const handleWorktreeCopy = useCallback(() => {
         if (!worktreeBranch) return
-        void copy(worktreeBranch)
-    }, [copy, worktreeBranch])
+        void (async () => {
+            const ok = await copy(worktreeBranch)
+            if (!ok) return
+            addToast({
+                title: t('toast.copy.title'),
+                body: t('toast.copy.body'),
+                sessionId: session.id,
+                url: ''
+            })
+        })()
+    }, [copy, worktreeBranch, addToast, t, session.id])
 
     const baseDirectory = session.metadata?.worktree?.basePath ?? session.metadata?.path ?? null
     const isWorktreeSession = Boolean(session.metadata?.worktree)
