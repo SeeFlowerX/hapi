@@ -288,7 +288,7 @@ function SessionItem(props: {
                         {s.metadata?.path ?? s.id}
                     </div>
                 ) : null}
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--app-hint)]">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--app-hint)] min-w-0">
                     <span className="inline-flex items-center gap-2">
                         <span className="flex h-4 w-4 items-center justify-center" aria-hidden="true">
                             ❖
@@ -301,7 +301,15 @@ function SessionItem(props: {
                             : (s.modelMode || 'default')}
                     </span>
                     {s.metadata?.worktree?.branch ? (
-                        <span>{t('session.item.worktree')}: {s.metadata.worktree.branch}</span>
+                        <span className="inline-flex min-w-0 flex-1 items-center gap-1">
+                            <span className="shrink-0">{t('session.item.worktree')}:</span>
+                            <span
+                                className="min-w-0 truncate"
+                                title={s.metadata.worktree.branch}
+                            >
+                                {s.metadata.worktree.branch}
+                            </span>
+                        </span>
                     ) : null}
                 </div>
             </button>

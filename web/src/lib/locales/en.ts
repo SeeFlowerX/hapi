@@ -41,6 +41,7 @@ export default {
   // Sessions page
   'sessions.count': '{n} sessions in {m} projects',
   'sessions.new': 'New Session',
+  'sessions.resize': 'Resize session list',
 
   // Session list
   'session.item.path': 'path',

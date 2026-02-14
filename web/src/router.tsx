@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import {
     Navigate,
@@ -35,6 +35,23 @@ import FilePage from '@/routes/sessions/file'
 import CommitPage from '@/routes/sessions/commit'
 import TerminalPage from '@/routes/sessions/terminal'
 import SettingsPage from '@/routes/settings'
+
+const SIDEBAR_WIDTH_STORAGE_KEY = 'hapi.sessions.sidebarWidth'
+const SIDEBAR_MIN_WIDTH = 280
+const SIDEBAR_DEFAULT_WIDTH = 420
+const SIDEBAR_DEFAULT_XL_WIDTH = 480
+const SIDEBAR_MAX_WIDTH = 720
+
+function clamp(value: number, min: number, max: number): number {
+    return Math.min(Math.max(value, min), max)
+}
+
+function getDefaultSidebarWidth(): number {
+    if (typeof window === 'undefined') {
+        return SIDEBAR_DEFAULT_WIDTH
+    }
+    return window.innerWidth >= 1280 ? SIDEBAR_DEFAULT_XL_WIDTH : SIDEBAR_DEFAULT_WIDTH
+}
 
 function BackIcon(props: { className?: string }) {
     return (
@@ -101,6 +118,21 @@ function SessionsPage() {
     const pathname = useLocation({ select: location => location.pathname })
     const matchRoute = useMatchRoute()
     const { t } = useTranslation()
+    const [isDesktop, setIsDesktop] = useState(
+        () => typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches
+    )
+    const [windowWidth, setWindowWidth] = useState(
+        () => typeof window !== 'undefined' ? window.innerWidth : 0
+    )
+    const [sidebarWidth, setSidebarWidth] = useState(() => {
+        if (typeof window === 'undefined') {
+            return SIDEBAR_DEFAULT_WIDTH
+        }
+        const stored = window.localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY)
+        const parsed = stored ? Number(stored) : Number.NaN
+        return Number.isFinite(parsed) ? parsed : getDefaultSidebarWidth()
+    })
+    const sidebarWidthRef = useRef(sidebarWidth)
     const { sessions, isLoading, error, refetch } = useSessions(api)
 
     const handleRefresh = useCallback(() => {
@@ -111,12 +143,122 @@ function SessionsPage() {
     const sessionMatch = matchRoute({ to: '/sessions/$sessionId', fuzzy: true })
     const selectedSessionId = sessionMatch && sessionMatch.sessionId !== 'new' ? sessionMatch.sessionId : null
     const isSessionsIndex = pathname === '/sessions' || pathname === '/sessions/'
+    const maxSidebarWidth = useMemo(() => {
+        if (!windowWidth) return SIDEBAR_MAX_WIDTH
+        const maxByWindow = windowWidth - 240
+        return Math.min(
+            SIDEBAR_MAX_WIDTH,
+            Math.max(SIDEBAR_MIN_WIDTH + 120, maxByWindow)
+        )
+    }, [windowWidth])
+    const clampedSidebarWidth = useMemo(
+        () => clamp(sidebarWidth, SIDEBAR_MIN_WIDTH, maxSidebarWidth),
+        [sidebarWidth, maxSidebarWidth]
+    )
+
+    useEffect(() => {
+        sidebarWidthRef.current = sidebarWidth
+    }, [sidebarWidth])
+
+    useEffect(() => {
+        if (clampedSidebarWidth !== sidebarWidth) {
+            setSidebarWidth(clampedSidebarWidth)
+        }
+    }, [clampedSidebarWidth, sidebarWidth])
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return
+        const media = window.matchMedia('(min-width: 1024px)')
+        const handleChange = (event: MediaQueryListEvent) => {
+            setIsDesktop(event.matches)
+        }
+        media.addEventListener('change', handleChange)
+        return () => media.removeEventListener('change', handleChange)
+    }, [])
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return
+        const handleResize = () => setWindowWidth(window.innerWidth)
+        window.addEventListener('resize', handleResize)
+        return () => window.removeEventListener('resize', handleResize)
+    }, [])
+
+    const handleResizeStart = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+        if (!isDesktop) return
+        event.preventDefault()
+        const startX = event.clientX
+        const startWidth = clampedSidebarWidth
+        const target = event.currentTarget
+        const pointerId = event.pointerId
+        let cleanedUp = false
+
+        const handleMove = (moveEvent: PointerEvent) => {
+            const delta = moveEvent.clientX - startX
+            const nextWidth = clamp(startWidth + delta, SIDEBAR_MIN_WIDTH, maxSidebarWidth)
+            sidebarWidthRef.current = nextWidth
+            setSidebarWidth(nextWidth)
+        }
+
+        const cleanup = () => {
+            if (cleanedUp) return
+            cleanedUp = true
+            window.removeEventListener('pointermove', handleMove)
+            window.removeEventListener('pointerup', handleUp)
+            window.removeEventListener('pointercancel', handleUp)
+            window.removeEventListener('blur', handleUp)
+            document.removeEventListener('visibilitychange', handleVisibilityChange)
+            document.body.style.userSelect = ''
+            document.body.style.cursor = ''
+            try {
+                target.releasePointerCapture?.(pointerId)
+            } catch {
+                // ignore
+            }
+            window.localStorage.setItem(
+                SIDEBAR_WIDTH_STORAGE_KEY,
+                String(sidebarWidthRef.current)
+            )
+        }
+
+        const handleUp = () => {
+            cleanup()
+        }
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState !== 'visible') {
+                handleUp()
+            }
+        }
+
+        document.body.style.userSelect = 'none'
+        document.body.style.cursor = 'col-resize'
+        try {
+            target.setPointerCapture?.(pointerId)
+        } catch {
+            // ignore
+        }
+        window.addEventListener('pointermove', handleMove)
+        window.addEventListener('pointerup', handleUp)
+        window.addEventListener('pointercancel', handleUp)
+        window.addEventListener('blur', handleUp)
+        document.addEventListener('visibilitychange', handleVisibilityChange)
+    }, [clampedSidebarWidth, isDesktop, maxSidebarWidth])
 
     return (
         <div className="flex h-full min-h-0">
             <div
-                className={`${isSessionsIndex ? 'flex' : 'hidden lg:flex'} w-full lg:w-[420px] xl:w-[480px] shrink-0 flex-col bg-[var(--app-bg)] lg:border-r lg:border-[var(--app-divider)]`}
+                className={`${isSessionsIndex ? 'flex' : 'hidden lg:flex'} w-full lg:shrink-0 flex-col bg-[var(--app-bg)] lg:border-r lg:border-[var(--app-divider)] relative`}
+                style={isDesktop ? { width: clampedSidebarWidth } : undefined}
             >
+                {isDesktop ? (
+                    <div
+                        role="separator"
+                        aria-orientation="vertical"
+                        aria-label={t('sessions.resize')}
+                        onPointerDown={handleResizeStart}
+                        className="absolute right-0 top-0 h-full w-3 cursor-col-resize bg-transparent hover:bg-[var(--app-divider)]"
+                    />
+                ) : null}
                 <div className="bg-[var(--app-bg)] pt-[env(safe-area-inset-top)]">
                     <div className="mx-auto w-full max-w-content flex items-center justify-between px-3 py-2">
                         <div className="text-xs text-[var(--app-hint)]">
