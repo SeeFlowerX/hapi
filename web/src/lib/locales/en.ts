@@ -108,6 +108,8 @@ export default {
   'button.paste': 'Paste',
   'toast.copy.title': 'Copied',
   'toast.copy.body': 'Copied to clipboard.',
+  'toast.copyFailed.title': 'Copy failed',
+  'toast.copyFailed.body': 'Clipboard unavailable. Please copy manually.',
 
   // New session form
   'newSession.machine': 'Machine',

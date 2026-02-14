@@ -84,7 +84,7 @@ export function SessionHeader(props: {
     const { addToast } = useToast()
     const navigate = useNavigate()
     const queryClient = useQueryClient()
-    const { copy } = useCopyToClipboard()
+    const { copied, copy } = useCopyToClipboard()
     const { session, api, onSessionDeleted } = props
     const title = useMemo(() => getSessionTitle(session), [session])
     const worktreeBranch = session.metadata?.worktree?.branch
@@ -200,7 +200,15 @@ export function SessionHeader(props: {
         if (!worktreeBranch) return
         void (async () => {
             const ok = await copy(worktreeBranch)
-            if (!ok) return
+            if (!ok) {
+                addToast({
+                    title: t('toast.copyFailed.title'),
+                    body: t('toast.copyFailed.body'),
+                    sessionId: session.id,
+                    url: ''
+                })
+                return
+            }
             addToast({
                 title: t('toast.copy.title'),
                 body: t('toast.copy.body'),
@@ -358,6 +366,11 @@ export function SessionHeader(props: {
                                 >
                                     <span className="shrink-0">{t('session.item.worktree')}:</span>
                                     <span className="min-w-0 truncate">{worktreeBranch}</span>
+                                    {copied ? (
+                                        <span className="shrink-0 rounded-full bg-[var(--app-secondary-bg)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--app-link)]">
+                                            {t('toast.copy.title')}
+                                        </span>
+                                    ) : null}
                                 </button>
                             ) : null}
                         </div>

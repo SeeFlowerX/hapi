@@ -110,6 +110,8 @@ export default {
   'button.paste': '粘贴',
   'toast.copy.title': '已复制',
   'toast.copy.body': '已复制到剪贴板。',
+  'toast.copyFailed.title': '复制失败',
+  'toast.copyFailed.body': '无法访问剪贴板，请手动复制。',
 
   // New session form
   'newSession.machine': '机器',
