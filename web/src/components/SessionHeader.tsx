@@ -9,6 +9,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useTranslation } from '@/lib/use-translation'
 import { usePlatform } from '@/hooks/usePlatform'
 import { useToast } from '@/lib/toast-context'
+import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
 
 function getSessionTitle(session: Session): string {
     if (session.metadata?.name) {
@@ -73,6 +74,7 @@ export function SessionHeader(props: {
     const { t } = useTranslation()
     const { haptic } = usePlatform()
     const { addToast } = useToast()
+    const { copy } = useCopyToClipboard()
     const { session, api, onSessionDeleted } = props
     const title = useMemo(() => getSessionTitle(session), [session])
     const worktreeBranch = session.metadata?.worktree?.branch
@@ -135,6 +137,11 @@ export function SessionHeader(props: {
         setMenuOpen((open) => !open)
     }
 
+    const handleWorktreeCopy = useCallback(() => {
+        if (!worktreeBranch) return
+        void copy(worktreeBranch)
+    }, [copy, worktreeBranch])
+
     // In Telegram, don't render header (Telegram provides its own)
     if (isTelegramApp()) {
         return null
@@ -185,7 +192,15 @@ export function SessionHeader(props: {
                                 </span>
                             )}
                             {worktreeBranch ? (
-                                <span>{t('session.item.worktree')}: {worktreeBranch}</span>
+                                <button
+                                    type="button"
+                                    onClick={handleWorktreeCopy}
+                                    className="inline-flex items-center gap-1 text-[var(--app-hint)] hover:text-[var(--app-fg)] transition-colors"
+                                    title={t('button.copy')}
+                                >
+                                    <span className="shrink-0">{t('session.item.worktree')}:</span>
+                                    <span className="min-w-0 truncate">{worktreeBranch}</span>
+                                </button>
                             ) : null}
                         </div>
                     </div>
