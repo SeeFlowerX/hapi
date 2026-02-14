@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { createContext, useContext } from 'react'
 import type { ApiClient } from '@/api/client'
-import type { SessionMetadataSummary } from '@/types/api'
+import type { AttachmentMetadata, SessionMetadataSummary } from '@/types/api'
 
 export type HappyChatContextValue = {
     api: ApiClient
@@ -10,6 +10,8 @@ export type HappyChatContextValue = {
     disabled: boolean
     onRefresh: () => void
     onRetryMessage?: (localId: string) => void
+    imageGallery?: AttachmentMetadata[]
+    onOpenImagePreview?: (attachmentId: string) => void
 }
 
 const HappyChatContext = createContext<HappyChatContextValue | null>(null)

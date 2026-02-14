@@ -286,6 +286,13 @@ export default {
   'misc.percentLeft': '剩余 {percent}%',
   'misc.online': '在线',
   'misc.openFile': '查看',
+  'misc.openFileError': '无法打开文件',
+  'misc.previewLargeFileTitle': '文件较大',
+  'misc.previewLargeFileBody': '文件较大，预览将仅显示前 10MB 内容。',
+  'misc.previewLargeFileConfirm': '继续预览',
+  'misc.previewTruncated': '仅显示文件前 10MB 内容。',
+  'misc.binaryFile': '该文件为二进制内容，无法预览。',
+  'misc.emptyFile': '文件为空。',
   'misc.download': '下载',
   'misc.downloadFailed': '下载失败',
 } as const

@@ -284,6 +284,13 @@ export default {
   'misc.percentLeft': '{percent}% left',
   'misc.online': 'online',
   'misc.openFile': 'Open',
+  'misc.openFileError': 'Failed to open file',
+  'misc.previewLargeFileTitle': 'Large file',
+  'misc.previewLargeFileBody': 'This file is large. Preview will show only the first 10MB.',
+  'misc.previewLargeFileConfirm': 'Continue preview',
+  'misc.previewTruncated': 'Showing first 10MB of file.',
+  'misc.binaryFile': 'This looks like a binary file. It cannot be displayed.',
+  'misc.emptyFile': 'File is empty.',
   'misc.download': 'Download',
   'misc.downloadFailed': 'Download failed',
 } as const

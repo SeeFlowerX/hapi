@@ -10,6 +10,7 @@ import { reduceChatBlocks } from '@/chat/reducer'
 import { reconcileChatBlocks } from '@/chat/reconcile'
 import { HappyComposer } from '@/components/AssistantChat/HappyComposer'
 import { HappyThread } from '@/components/AssistantChat/HappyThread'
+import { ImagePreviewDialog } from '@/components/AssistantChat/ImagePreviewDialog'
 import { useHappyRuntime } from '@/lib/assistant-runtime'
 import { createAttachmentAdapter } from '@/lib/attachmentAdapter'
 import { SessionHeader } from '@/components/SessionHeader'
@@ -18,6 +19,7 @@ import { useSessionActions } from '@/hooks/mutations/useSessionActions'
 import { useVoiceOptional } from '@/lib/voice-context'
 import { RealtimeVoiceSession, registerSessionStore, registerVoiceHooksStore, voiceHooks } from '@/realtime'
 import { getCodexModelLabel, normalizeCodexModel } from '@/lib/codexModels'
+import { isImageMimeType } from '@/lib/fileAttachments'
 
 export function SessionChat(props: {
     api: ApiClient
@@ -201,6 +203,46 @@ export function SessionChat(props: {
         [reduced.blocks]
     )
 
+    const imageGallery = useMemo(() => {
+        const images: AttachmentMetadata[] = []
+        for (const block of reconciled.blocks) {
+            if (block.kind !== 'user-text' && block.kind !== 'agent-text') {
+                continue
+            }
+            const attachments = block.attachments ?? []
+            for (const attachment of attachments) {
+                if (isImageMimeType(attachment.mimeType) && attachment.previewUrl) {
+                    images.push(attachment)
+                }
+            }
+        }
+        return images
+    }, [reconciled.blocks])
+
+    const imageIndexById = useMemo(() => {
+        const map = new Map<string, number>()
+        imageGallery.forEach((attachment, index) => {
+            map.set(attachment.id, index)
+        })
+        return map
+    }, [imageGallery])
+
+    const [imagePreviewId, setImagePreviewId] = useState<string | null>(null)
+
+    const handleOpenImagePreview = useCallback((attachmentId: string) => {
+        if (!imageIndexById.has(attachmentId)) return
+        setImagePreviewId(attachmentId)
+    }, [imageIndexById])
+
+    useEffect(() => {
+        if (imagePreviewId === null) {
+            return
+        }
+        if (!imageIndexById.has(imagePreviewId)) {
+            setImagePreviewId(null)
+        }
+    }, [imagePreviewId, imageIndexById])
+
     useEffect(() => {
         blocksByIdRef.current = reconciled.byId
     }, [reconciled.byId])
@@ -321,6 +363,8 @@ export function SessionChat(props: {
                         disabled={sessionInactive}
                         onRefresh={props.onRefresh}
                         onRetryMessage={props.onRetryMessage}
+                        imageGallery={imageGallery}
+                        onOpenImagePreview={handleOpenImagePreview}
                         onFlushPending={props.onFlushPending}
                         onAtBottomChange={props.onAtBottomChange}
                         isLoadingMessages={props.isLoadingMessages}
@@ -333,6 +377,13 @@ export function SessionChat(props: {
                         normalizedMessagesCount={normalizedMessages.length}
                         messagesVersion={props.messagesVersion}
                         forceScrollToken={forceScrollToken}
+                    />
+
+                    <ImagePreviewDialog
+                        images={imageGallery}
+                        activeId={imagePreviewId}
+                        onClose={() => setImagePreviewId(null)}
+                        onSelectId={setImagePreviewId}
                     />
 
                     <HappyComposer

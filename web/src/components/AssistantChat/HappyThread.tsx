@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ThreadPrimitive } from '@assistant-ui/react'
 import type { ApiClient } from '@/api/client'
-import type { SessionMetadataSummary } from '@/types/api'
+import type { AttachmentMetadata, SessionMetadataSummary } from '@/types/api'
 import { HappyChatProvider } from '@/components/AssistantChat/context'
 import { HappyAssistantMessage } from '@/components/AssistantChat/messages/AssistantMessage'
 import { HappyUserMessage } from '@/components/AssistantChat/messages/UserMessage'
@@ -62,6 +62,8 @@ export function HappyThread(props: {
     disabled: boolean
     onRefresh: () => void
     onRetryMessage?: (localId: string) => void
+    imageGallery?: AttachmentMetadata[]
+    onOpenImagePreview?: (attachmentId: string) => void
     onFlushPending: () => void
     onAtBottomChange: (atBottom: boolean) => void
     isLoadingMessages: boolean
@@ -275,7 +277,9 @@ export function HappyThread(props: {
             metadata: props.metadata,
             disabled: props.disabled,
             onRefresh: props.onRefresh,
-            onRetryMessage: props.onRetryMessage
+            onRetryMessage: props.onRetryMessage,
+            imageGallery: props.imageGallery,
+            onOpenImagePreview: props.onOpenImagePreview
         }}>
             <ThreadPrimitive.Root className="flex min-h-0 flex-1 flex-col relative">
                 <ThreadPrimitive.Viewport asChild autoScroll={autoScrollEnabled}>
