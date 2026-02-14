@@ -7,6 +7,7 @@ import { useSessions } from '@/hooks/queries/useSessions'
 import { useDirectorySuggestions } from '@/hooks/useDirectorySuggestions'
 import { useRecentPaths } from '@/hooks/useRecentPaths'
 import { normalizeCodexModel } from '@/lib/codexModels'
+import { setPendingCodexModel } from '@/lib/pendingCodexModel'
 import type { AgentType, SessionType } from './types'
 import { ActionButtons } from './ActionButtons'
 import { AgentSelector } from './AgentSelector'
@@ -192,6 +193,9 @@ export function NewSession(props: {
                         await props.api.setCodexModel(result.sessionId, resolvedModel)
                     } catch (error) {
                         console.error('Failed to sync Codex model to session cache:', error)
+                        if (resolvedModel) {
+                            setPendingCodexModel(result.sessionId, resolvedModel)
+                        }
                     }
                 }
                 setLastUsedMachineId(machineId)

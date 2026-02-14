@@ -19,6 +19,7 @@ import { useSessionActions } from '@/hooks/mutations/useSessionActions'
 import { useVoiceOptional } from '@/lib/voice-context'
 import { RealtimeVoiceSession, registerSessionStore, registerVoiceHooksStore, voiceHooks } from '@/realtime'
 import { getCodexModelLabel, normalizeCodexModel } from '@/lib/codexModels'
+import { clearPendingCodexModel, getPendingCodexModel } from '@/lib/pendingCodexModel'
 import { isImageMimeType } from '@/lib/fileAttachments'
 
 export function SessionChat(props: {
@@ -163,6 +164,34 @@ export function SessionChat(props: {
         }
         setCodexModelState(normalizeCodexModel(props.session.codexModel))
     }, [props.session.id, props.session.codexModel, isCodex])
+
+    useEffect(() => {
+        if (!isCodex || !props.session.active) return
+        const pendingModel = getPendingCodexModel(props.session.id)
+        if (!pendingModel) return
+        const currentModel = normalizeCodexModel(props.session.codexModel)
+        if (currentModel) {
+            clearPendingCodexModel(props.session.id)
+            return
+        }
+
+        let cancelled = false
+        void (async () => {
+            try {
+                await setCodexModel(pendingModel)
+            } catch (error) {
+                console.warn('Failed to apply pending Codex model:', error)
+            } finally {
+                if (!cancelled) {
+                    clearPendingCodexModel(props.session.id)
+                }
+            }
+        })()
+
+        return () => {
+            cancelled = true
+        }
+    }, [isCodex, props.session.active, props.session.id, props.session.codexModel, setCodexModel])
 
     const normalizedMessages: NormalizedMessage[] = useMemo(() => {
         // Clear caches immediately when session changes (before useEffect runs)
