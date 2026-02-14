@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
+import { useQueryClient } from '@tanstack/react-query'
 import type { SessionSummary } from '@/types/api'
 import { getCodexModelLabel } from '@/lib/codexModels'
 import type { ApiClient } from '@/api/client'
@@ -11,6 +12,8 @@ import { RenameSessionDialog } from '@/components/RenameSessionDialog'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useTranslation } from '@/lib/use-translation'
 import { useToast } from '@/lib/toast-context'
+import { fetchLatestMessages, seedMessageWindowFromSession } from '@/lib/message-window-store'
+import { queryKeys } from '@/lib/query-keys'
 
 type SessionGroup = {
     directory: string
@@ -183,6 +186,7 @@ function SessionItem(props: {
     const [deleteOpen, setDeleteOpen] = useState(false)
     const [activatePending, setActivatePending] = useState(false)
     const navigate = useNavigate()
+    const queryClient = useQueryClient()
 
     const { archiveSession, renameSession, deleteSession, isPending } = useSessionActions(
         api,
@@ -224,14 +228,31 @@ function SessionItem(props: {
         try {
             const resumedSessionId = await api.resumeSession(s.id)
             haptic.notification('success')
-            onRefresh()
-            if (selected && resumedSessionId !== s.id) {
-                navigate({
-                    to: '/sessions/$sessionId',
-                    params: { sessionId: resumedSessionId },
-                    replace: true
-                })
-            }
+            void (async () => {
+                if (api) {
+                    if (resumedSessionId !== s.id) {
+                        seedMessageWindowFromSession(s.id, resumedSessionId)
+                    }
+                    try {
+                        await Promise.all([
+                            queryClient.prefetchQuery({
+                                queryKey: queryKeys.session(resumedSessionId),
+                                queryFn: () => api.getSession(resumedSessionId),
+                            }),
+                            fetchLatestMessages(api, resumedSessionId),
+                        ])
+                    } catch {
+                    }
+                }
+                onRefresh()
+                if (selected && resumedSessionId !== s.id) {
+                    navigate({
+                        to: '/sessions/$sessionId',
+                        params: { sessionId: resumedSessionId },
+                        replace: true
+                    })
+                }
+            })()
         } catch (error) {
             haptic.notification('error')
             const message = error instanceof Error ? error.message : 'Resume failed'

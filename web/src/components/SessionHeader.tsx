@@ -18,6 +18,7 @@ import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
 import { PlusCircleIcon } from '@/components/icons'
 import { queryKeys } from '@/lib/query-keys'
 import { isKnownFlavor } from '@/lib/agentFlavorUtils'
+import { fetchLatestMessages, seedMessageWindowFromSession } from '@/lib/message-window-store'
 
 function getSessionTitle(session: Session): string {
     if (session.metadata?.name) {
@@ -147,18 +148,31 @@ export function SessionHeader(props: {
         try {
             const resumedSessionId = await api.resumeSession(session.id)
             haptic.notification('success')
-            if (resumedSessionId !== session.id) {
-                queryClient.setQueryData(queryKeys.session(resumedSessionId), {
-                    session: { ...session, id: resumedSessionId, active: true }
-                })
+            void (async () => {
+                if (api) {
+                    if (resumedSessionId !== session.id) {
+                        seedMessageWindowFromSession(session.id, resumedSessionId)
+                        queryClient.setQueryData(queryKeys.session(resumedSessionId), {
+                            session: { ...session, id: resumedSessionId, active: true }
+                        })
+                    }
+                    try {
+                        await Promise.all([
+                            queryClient.prefetchQuery({
+                                queryKey: queryKeys.session(resumedSessionId),
+                                queryFn: () => api.getSession(resumedSessionId),
+                            }),
+                            fetchLatestMessages(api, resumedSessionId),
+                        ])
+                    } catch {
+                    }
+                }
                 navigate({
                     to: '/sessions/$sessionId',
                     params: { sessionId: resumedSessionId },
                     replace: true
                 })
-                return
-            }
-            props.onRefresh?.()
+            })()
         } catch (error) {
             haptic.notification('error')
             const message = error instanceof Error ? error.message : 'Resume failed'
@@ -174,7 +188,6 @@ export function SessionHeader(props: {
     }, [
         api,
         session,
-        props.onRefresh,
         haptic,
         addToast,
         activatePending,
