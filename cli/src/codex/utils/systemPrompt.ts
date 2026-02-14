@@ -20,7 +20,7 @@ export const TITLE_INSTRUCTION = trimIdent(`
 `);
 
 export const SHARE_FILES_INSTRUCTION = trimIdent(`
-    When the user asks you to send, share, or return a file or image, call functions.hapi__share_files with the file paths. Include a short message if helpful.
+    When the user asks you to send, share, or return a file or image, call functions.hapi__share_files with the file paths. Put any user-visible confirmation in the tool's message field. After calling the tool, do not send another assistant message repeating the same confirmation unless you must add extra info or report an error.
 `);
 
 /**
