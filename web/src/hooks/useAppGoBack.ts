@@ -33,6 +33,12 @@ export function useAppGoBack(): () => void {
             return
         }
 
+        // Commit detail should return to previous page (history list)
+        if (pathname.match(/^\/sessions\/[^/]+\/commit$/)) {
+            router.history.back()
+            return
+        }
+
         // For session routes, navigate to parent path
         if (pathname.startsWith('/sessions/')) {
             const parentPath = pathname.replace(/\/[^/]+$/, '') || '/sessions'
