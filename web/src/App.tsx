@@ -115,6 +115,7 @@ function AppInner() {
     const queryClient = useQueryClient()
     const sessionMatch = matchRoute({ to: '/sessions/$sessionId' })
     const selectedSessionId = sessionMatch && sessionMatch.sessionId !== 'new' ? sessionMatch.sessionId : null
+    const toastTopOffset = sessionMatch ? 'calc(env(safe-area-inset-top) + 4.5rem)' : undefined
     const { isSyncing, startSync, endSync } = useSyncingState()
     const [sseDisconnected, setSseDisconnected] = useState(false)
     const syncTokenRef = useRef(0)
@@ -344,7 +345,7 @@ function AppInner() {
                 <div className="h-full flex flex-col">
                     <Outlet />
                 </div>
-                <ToastContainer />
+                <ToastContainer topOffset={toastTopOffset} />
                 <InstallPrompt />
             </VoiceProvider>
         </AppContextProvider>

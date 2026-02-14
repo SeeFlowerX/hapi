@@ -1,8 +1,9 @@
+import type { CSSProperties } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { Toast } from '@/components/ui/Toast'
 import { useToast } from '@/lib/toast-context'
 
-export function ToastContainer() {
+export function ToastContainer(props: { topOffset?: string }) {
     const navigate = useNavigate()
     const { toasts, removeToast } = useToast()
 
@@ -12,8 +13,9 @@ export function ToastContainer() {
 
     return (
         <div
-            className="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+1rem)] z-50 flex flex-col items-center gap-2 px-3"
+            className="pointer-events-none fixed inset-x-0 top-[var(--app-toast-top,calc(env(safe-area-inset-top)+1rem))] z-50 flex flex-col items-center gap-2 px-3"
             aria-live="polite"
+            style={props.topOffset ? { '--app-toast-top': props.topOffset } as CSSProperties : undefined}
         >
             {toasts.map((toast) => (
                 <Toast
