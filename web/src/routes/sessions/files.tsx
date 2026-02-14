@@ -8,10 +8,12 @@ import { useAppGoBack } from '@/hooks/useAppGoBack'
 import { useGitStatusFiles } from '@/hooks/queries/useGitStatusFiles'
 import { useSession } from '@/hooks/queries/useSession'
 import { useSessionFileSearch } from '@/hooks/queries/useSessionFileSearch'
+import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
 import { parseGitLog, type GitLogEntry } from '@/lib/gitParsers'
 import { encodeBase64 } from '@/lib/utils'
 import { queryKeys } from '@/lib/query-keys'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { CheckIcon, CopyIcon } from '@/components/icons'
 
 function BackIcon(props: { className?: string }) {
     return (
@@ -161,24 +163,38 @@ function GitFileRow(props: {
     onOpen: () => void
     showDivider: boolean
 }) {
+    const { copied, copy } = useCopyToClipboard()
     const subtitle = props.file.filePath || 'project root'
+    const copyPath = props.file.fullPath
 
     return (
-        <button
-            type="button"
-            onClick={props.onOpen}
-            className={`flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-[var(--app-subtle-bg)] transition-colors ${props.showDivider ? 'border-b border-[var(--app-divider)]' : ''}`}
+        <div
+            className={`flex w-full items-center gap-2 px-3 py-2 transition-colors hover:bg-[var(--app-subtle-bg)] ${props.showDivider ? 'border-b border-[var(--app-divider)]' : ''}`}
         >
-            <FileIcon fileName={props.file.fileName} size={22} />
-            <div className="min-w-0 flex-1">
-                <div className="truncate font-medium">{props.file.fileName}</div>
-                <div className="truncate text-xs text-[var(--app-hint)]">{subtitle}</div>
-            </div>
-            <div className="flex items-center gap-2">
-                <LineChanges added={props.file.linesAdded} removed={props.file.linesRemoved} />
-                <StatusBadge status={props.file.status} />
-            </div>
-        </button>
+            <button
+                type="button"
+                onClick={props.onOpen}
+                className="flex min-w-0 flex-1 items-center gap-3 text-left"
+            >
+                <FileIcon fileName={props.file.fileName} size={22} />
+                <div className="min-w-0 flex-1">
+                    <div className="truncate font-medium">{props.file.fileName}</div>
+                    <div className="truncate text-xs text-[var(--app-hint)]">{subtitle}</div>
+                </div>
+                <div className="flex items-center gap-2">
+                    <LineChanges added={props.file.linesAdded} removed={props.file.linesRemoved} />
+                    <StatusBadge status={props.file.status} />
+                </div>
+            </button>
+            <button
+                type="button"
+                onClick={() => copy(copyPath)}
+                className="shrink-0 rounded p-1 text-[var(--app-hint)] hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)] transition-colors"
+                title="Copy path"
+            >
+                {copied ? <CheckIcon className="h-3.5 w-3.5" /> : <CopyIcon className="h-3.5 w-3.5" />}
+            </button>
+        </div>
     )
 }
 

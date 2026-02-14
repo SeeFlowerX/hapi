@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useState } from 'react'
 import type { ApiClient } from '@/api/client'
 import { FileIcon } from '@/components/FileIcon'
+import { CheckIcon, CopyIcon } from '@/components/icons'
+import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
 import { useSessionDirectory } from '@/hooks/queries/useSessionDirectory'
 
 function ChevronIcon(props: { className?: string; collapsed: boolean }) {
@@ -73,6 +75,43 @@ function DirectoryErrorRow(props: { depth: number; message: string }) {
     )
 }
 
+function DirectoryFileRow(props: {
+    path: string
+    name: string
+    depth: number
+    onOpenFile: (path: string) => void
+}) {
+    const { copied, copy } = useCopyToClipboard()
+    const indent = 12 + props.depth * 14
+
+    return (
+        <div
+            className="flex w-full items-center gap-2 px-3 py-2 transition-colors hover:bg-[var(--app-subtle-bg)]"
+            style={{ paddingLeft: indent }}
+        >
+            <button
+                type="button"
+                onClick={() => props.onOpenFile(props.path)}
+                className="flex min-w-0 flex-1 items-center gap-3 text-left"
+            >
+                <span className="h-4 w-4" />
+                <FileIcon fileName={props.name} size={22} />
+                <div className="min-w-0 flex-1">
+                    <div className="truncate font-medium">{props.name}</div>
+                </div>
+            </button>
+            <button
+                type="button"
+                onClick={() => copy(props.path)}
+                className="shrink-0 rounded p-1 text-[var(--app-hint)] hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)] transition-colors"
+                title="Copy path"
+            >
+                {copied ? <CheckIcon className="h-3.5 w-3.5" /> : <CopyIcon className="h-3.5 w-3.5" />}
+            </button>
+        </div>
+    )
+}
+
 function DirectoryNode(props: {
     api: ApiClient | null
     sessionId: string
@@ -83,6 +122,7 @@ function DirectoryNode(props: {
     expanded: Set<string>
     onToggle: (path: string) => void
 }) {
+    const { copied, copy } = useCopyToClipboard()
     const isExpanded = props.expanded.has(props.path)
     const { entries, error, isLoading } = useSessionDirectory(props.api, props.sessionId, props.path, {
         enabled: isExpanded
@@ -94,21 +134,34 @@ function DirectoryNode(props: {
 
     const indent = 12 + props.depth * 14
     const childIndent = 12 + childDepth * 14
+    const copyPath = props.path || '.'
 
     return (
         <div>
-            <button
-                type="button"
-                onClick={() => props.onToggle(props.path)}
-                className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-[var(--app-subtle-bg)] transition-colors"
+            <div
+                className="flex w-full items-center gap-2 px-3 py-2 transition-colors hover:bg-[var(--app-subtle-bg)]"
                 style={{ paddingLeft: indent }}
             >
-                <ChevronIcon collapsed={!isExpanded} className="text-[var(--app-hint)]" />
-                <FolderIcon className="text-[var(--app-link)]" />
-                <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium">{props.label}</div>
-                </div>
-            </button>
+                <button
+                    type="button"
+                    onClick={() => props.onToggle(props.path)}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                >
+                    <ChevronIcon collapsed={!isExpanded} className="text-[var(--app-hint)]" />
+                    <FolderIcon className="text-[var(--app-link)]" />
+                    <div className="min-w-0 flex-1">
+                        <div className="truncate font-medium">{props.label}</div>
+                    </div>
+                </button>
+                <button
+                    type="button"
+                    onClick={() => copy(copyPath)}
+                    className="shrink-0 rounded p-1 text-[var(--app-hint)] hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)] transition-colors"
+                    title="Copy path"
+                >
+                    {copied ? <CheckIcon className="h-3.5 w-3.5" /> : <CopyIcon className="h-3.5 w-3.5" />}
+                </button>
+            </div>
 
             {isExpanded ? (
                 isLoading ? (
@@ -137,19 +190,13 @@ function DirectoryNode(props: {
                         {files.map((entry) => {
                             const filePath = props.path ? `${props.path}/${entry.name}` : entry.name
                             return (
-                                <button
+                                <DirectoryFileRow
                                     key={filePath}
-                                    type="button"
-                                    onClick={() => props.onOpenFile(filePath)}
-                                    className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-[var(--app-subtle-bg)] transition-colors"
-                                    style={{ paddingLeft: childIndent }}
-                                >
-                                    <span className="h-4 w-4" />
-                                    <FileIcon fileName={entry.name} size={22} />
-                                    <div className="min-w-0 flex-1">
-                                        <div className="truncate font-medium">{entry.name}</div>
-                                    </div>
-                                </button>
+                                    path={filePath}
+                                    name={entry.name}
+                                    depth={childDepth}
+                                    onOpenFile={props.onOpenFile}
+                                />
                             )
                         })}
 
@@ -203,4 +250,3 @@ export function DirectoryTree(props: {
         </div>
     )
 }
-
