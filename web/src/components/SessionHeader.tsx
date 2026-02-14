@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Session } from '@/types/api'
 import type { ApiClient } from '@/api/client'
 import { isTelegramApp } from '@/hooks/useTelegram'
@@ -83,6 +83,7 @@ export function SessionHeader(props: {
     const { haptic } = usePlatform()
     const { addToast } = useToast()
     const navigate = useNavigate()
+    const queryClient = useQueryClient()
     const { copy } = useCopyToClipboard()
     const { session, api, onSessionDeleted } = props
     const title = useMemo(() => getSessionTitle(session), [session])
@@ -144,8 +145,19 @@ export function SessionHeader(props: {
         }
         setActivatePending(true)
         try {
-            await api.resumeSession(session.id)
+            const resumedSessionId = await api.resumeSession(session.id)
             haptic.notification('success')
+            if (resumedSessionId !== session.id) {
+                queryClient.setQueryData(queryKeys.session(resumedSessionId), {
+                    session: { ...session, id: resumedSessionId, active: true }
+                })
+                navigate({
+                    to: '/sessions/$sessionId',
+                    params: { sessionId: resumedSessionId },
+                    replace: true
+                })
+                return
+            }
             props.onRefresh?.()
         } catch (error) {
             haptic.notification('error')
@@ -159,7 +171,17 @@ export function SessionHeader(props: {
         } finally {
             setActivatePending(false)
         }
-    }, [api, session.active, session.id, props.onRefresh, haptic, addToast, activatePending, t])
+    }, [
+        api,
+        session,
+        props.onRefresh,
+        haptic,
+        addToast,
+        activatePending,
+        t,
+        navigate,
+        queryClient
+    ])
 
     const handleDelete = async () => {
         await deleteSession()

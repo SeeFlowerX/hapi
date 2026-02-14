@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import type { SessionSummary } from '@/types/api'
 import { getCodexModelLabel } from '@/lib/codexModels'
 import type { ApiClient } from '@/api/client'
@@ -181,6 +182,7 @@ function SessionItem(props: {
     const [archiveOpen, setArchiveOpen] = useState(false)
     const [deleteOpen, setDeleteOpen] = useState(false)
     const [activatePending, setActivatePending] = useState(false)
+    const navigate = useNavigate()
 
     const { archiveSession, renameSession, deleteSession, isPending } = useSessionActions(
         api,
@@ -223,6 +225,13 @@ function SessionItem(props: {
             const resumedSessionId = await api.resumeSession(s.id)
             haptic.notification('success')
             onRefresh()
+            if (selected && resumedSessionId !== s.id) {
+                navigate({
+                    to: '/sessions/$sessionId',
+                    params: { sessionId: resumedSessionId },
+                    replace: true
+                })
+            }
         } catch (error) {
             haptic.notification('error')
             const message = error instanceof Error ? error.message : 'Resume failed'
