@@ -13,6 +13,7 @@ export function useMachineDirectory(
     error: string | null
     isLoading: boolean
     path: string | null
+    pathType: 'directory' | 'file' | 'other' | 'missing' | null
     refetch: () => Promise<unknown>
 } {
     const resolvedMachineId = machineId ?? 'unknown'
@@ -27,10 +28,20 @@ export function useMachineDirectory(
 
             const response = await api.listMachineDirectory(machineId, path)
             if (!response.success) {
-                return { entries: [], error: response.error ?? 'Failed to list directory', path: null }
+                return {
+                    entries: [],
+                    error: response.error ?? 'Failed to list directory',
+                    path: response.path ?? null,
+                    pathType: response.pathType ?? null
+                }
             }
 
-            return { entries: response.entries ?? [], error: null, path: response.path ?? null }
+            return {
+                entries: response.entries ?? [],
+                error: null,
+                path: response.path ?? null,
+                pathType: response.pathType ?? 'directory'
+            }
         },
         enabled
     })
@@ -46,6 +57,7 @@ export function useMachineDirectory(
         error: queryError ?? query.data?.error ?? null,
         isLoading: query.isLoading,
         path: query.data?.path ?? null,
+        pathType: query.data?.pathType ?? null,
         refetch: query.refetch
     }
 }

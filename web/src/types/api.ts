@@ -110,6 +110,7 @@ export type ListDirectoryResponse = {
     success: boolean
     entries?: DirectoryEntry[]
     path?: string
+    pathType?: 'directory' | 'file' | 'other' | 'missing'
     error?: string
 }
 

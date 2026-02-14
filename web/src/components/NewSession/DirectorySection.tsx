@@ -1,28 +1,18 @@
-import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
-import type { Suggestion } from '@/hooks/useActiveSuggestions'
-import { Autocomplete } from '@/components/ChatInput/Autocomplete'
-import { FloatingOverlay } from '@/components/ChatInput/FloatingOverlay'
+import type { ReactNode } from 'react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useTranslation } from '@/lib/use-translation'
 
 export function DirectorySection(props: {
     directory: string
-    suggestions: readonly Suggestion[]
-    selectedIndex: number
     isDisabled: boolean
     recentPaths: string[]
     browser?: ReactNode
     isBrowserOpen?: boolean
-    canBrowse?: boolean
-    onToggleBrowser?: () => void
-    onDirectoryChange: (value: string) => void
-    onDirectoryFocus: () => void
-    onDirectoryBlur: () => void
-    onDirectoryKeyDown: (event: ReactKeyboardEvent<HTMLInputElement>) => void
-    onSuggestionSelect: (index: number) => void
+    onBrowserOpenChange?: (open: boolean) => void
+    onDirectoryClick: () => void
     onPathClick: (path: string) => void
 }) {
     const { t } = useTranslation()
-    const canBrowse = props.canBrowse ?? true
     const showBrowser = Boolean(props.browser)
 
     return (
@@ -35,24 +25,11 @@ export function DirectorySection(props: {
                     type="text"
                     placeholder={t('newSession.placeholder')}
                     value={props.directory}
-                    onChange={(event) => props.onDirectoryChange(event.target.value)}
-                    onKeyDown={props.onDirectoryKeyDown}
-                    onFocus={props.onDirectoryFocus}
-                    onBlur={props.onDirectoryBlur}
+                    onFocus={props.onDirectoryClick}
+                    readOnly
                     disabled={props.isDisabled}
-                    className="w-full rounded-md border border-[var(--app-border)] bg-[var(--app-bg)] p-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--app-link)] disabled:opacity-50"
+                    className="w-full cursor-pointer rounded-md border border-[var(--app-border)] bg-[var(--app-bg)] p-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--app-link)] disabled:cursor-not-allowed disabled:opacity-50"
                 />
-                {props.suggestions.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 z-10 mt-1">
-                        <FloatingOverlay maxHeight={200}>
-                            <Autocomplete
-                                suggestions={props.suggestions}
-                                selectedIndex={props.selectedIndex}
-                                onSelect={props.onSuggestionSelect}
-                            />
-                        </FloatingOverlay>
-                    </div>
-                )}
             </div>
 
             {props.recentPaths.length > 0 && (
@@ -76,17 +53,17 @@ export function DirectorySection(props: {
             )}
 
             {showBrowser ? (
-                <div className="mt-2 flex flex-col gap-2">
-                    <button
-                        type="button"
-                        onClick={props.onToggleBrowser}
-                        disabled={props.isDisabled || !canBrowse}
-                        className="text-left text-xs font-medium text-[var(--app-link)] disabled:opacity-50"
-                    >
-                        {props.isBrowserOpen ? t('newSession.browse.hide') : t('newSession.browse.show')}
-                    </button>
-                    {props.isBrowserOpen ? props.browser : null}
-                </div>
+                <Dialog
+                    open={Boolean(props.isBrowserOpen)}
+                    onOpenChange={props.onBrowserOpenChange}
+                >
+                    <DialogContent className="max-w-lg">
+                        <DialogHeader>
+                            <DialogTitle>{t('newSession.browse.title')}</DialogTitle>
+                        </DialogHeader>
+                        {props.browser}
+                    </DialogContent>
+                </Dialog>
             ) : null}
         </div>
     )

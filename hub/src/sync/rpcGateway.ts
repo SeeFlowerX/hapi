@@ -38,6 +38,7 @@ export type RpcListDirectoryResponse = {
     success: boolean
     entries?: RpcDirectoryEntry[]
     path?: string
+    pathType?: 'directory' | 'file' | 'other' | 'missing'
     error?: string
 }
 

@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ApiClient } from '@/api/client'
 import type { Machine } from '@/types/api'
 import { usePlatform } from '@/hooks/usePlatform'
 import { useSpawnSession } from '@/hooks/mutations/useSpawnSession'
 import { useSessions } from '@/hooks/queries/useSessions'
-import { useActiveSuggestions, type Suggestion } from '@/hooks/useActiveSuggestions'
 import { useDirectorySuggestions } from '@/hooks/useDirectorySuggestions'
 import { useRecentPaths } from '@/hooks/useRecentPaths'
 import { normalizeCodexModel } from '@/lib/codexModels'
@@ -41,8 +40,6 @@ export function NewSession(props: {
     const [directory, setDirectory] = useState('')
     const [browserPath, setBrowserPath] = useState('')
     const [isBrowserOpen, setIsBrowserOpen] = useState(false)
-    const [suppressSuggestions, setSuppressSuggestions] = useState(false)
-    const [isDirectoryFocused, setIsDirectoryFocused] = useState(false)
     const [pathExistence, setPathExistence] = useState<Record<string, boolean>>({})
     const [agent, setAgent] = useState<AgentType>(loadPreferredAgent)
     const [model, setModel] = useState('auto')
@@ -92,8 +89,7 @@ export function NewSession(props: {
             setIsBrowserOpen(false)
             return
         }
-        const fallback = getRecentPaths(machineId)[0] ?? ''
-        setBrowserPath(fallback)
+        setBrowserPath('')
         setIsBrowserOpen(false)
     }, [machineId, getRecentPaths])
 
@@ -137,26 +133,6 @@ export function NewSession(props: {
         [allPaths, pathExistence]
     )
 
-    const getSuggestions = useCallback(async (query: string): Promise<Suggestion[]> => {
-        const lowered = query.toLowerCase()
-        return verifiedPaths
-            .filter((path) => path.toLowerCase().includes(lowered))
-            .slice(0, 8)
-            .map((path) => ({
-                key: path,
-                text: path,
-                label: path
-            }))
-    }, [verifiedPaths])
-
-    const activeQuery = (!isDirectoryFocused || suppressSuggestions) ? null : directory
-
-    const [suggestions, selectedIndex, moveUp, moveDown, clearSuggestions] = useActiveSuggestions(
-        activeQuery,
-        getSuggestions,
-        { allowEmptyQuery: true, autoSelectFirst: false }
-    )
-
     const handleMachineChange = useCallback((newMachineId: string) => {
         setMachineId(newMachineId)
         const paths = getRecentPaths(newMachineId)
@@ -171,72 +147,26 @@ export function NewSession(props: {
         setDirectory(path)
     }, [])
 
-    const handleSuggestionSelect = useCallback((index: number) => {
-        const suggestion = suggestions[index]
-        if (suggestion) {
-            setDirectory(suggestion.text)
-            clearSuggestions()
-            setSuppressSuggestions(true)
+    const handleBrowserOpenChange = useCallback((open: boolean) => {
+        if (!open) {
+            setIsBrowserOpen(false)
+            return
         }
-    }, [suggestions, clearSuggestions])
 
-    const handleDirectoryChange = useCallback((value: string) => {
-        setSuppressSuggestions(false)
-        setDirectory(value)
-    }, [])
-
-    const handleToggleBrowser = useCallback(() => {
-        setIsBrowserOpen((prev) => {
-            const next = !prev
-            if (next && directory.trim()) {
-                setBrowserPath(directory.trim())
-            } else if (next && !browserPath) {
-                const fallback = machineId ? getRecentPaths(machineId)[0] ?? '' : ''
-                setBrowserPath(fallback)
-            }
-            return next
-        })
-    }, [directory, browserPath, machineId, getRecentPaths])
+        const fallback = directory.trim() || (machineId ? getRecentPaths(machineId)[0] ?? '' : '')
+        setBrowserPath(fallback)
+        setIsBrowserOpen(true)
+    }, [directory, machineId, getRecentPaths])
 
     const handleBrowserSelect = useCallback((path: string) => {
         setDirectory(path)
-        setSuppressSuggestions(true)
         setIsBrowserOpen(false)
     }, [])
 
-    const handleDirectoryFocus = useCallback(() => {
-        setSuppressSuggestions(false)
-        setIsDirectoryFocused(true)
-    }, [])
-
-    const handleDirectoryBlur = useCallback(() => {
-        setIsDirectoryFocused(false)
-    }, [])
-
-    const handleDirectoryKeyDown = useCallback((event: ReactKeyboardEvent<HTMLInputElement>) => {
-        if (suggestions.length === 0) return
-
-        if (event.key === 'ArrowUp') {
-            event.preventDefault()
-            moveUp()
-        }
-
-        if (event.key === 'ArrowDown') {
-            event.preventDefault()
-            moveDown()
-        }
-
-        if (event.key === 'Enter' || event.key === 'Tab') {
-            if (selectedIndex >= 0) {
-                event.preventDefault()
-                handleSuggestionSelect(selectedIndex)
-            }
-        }
-
-        if (event.key === 'Escape') {
-            clearSuggestions()
-        }
-    }, [suggestions, selectedIndex, moveUp, moveDown, clearSuggestions, handleSuggestionSelect])
+    const handleDirectoryClick = useCallback(() => {
+        if (isFormDisabled || !machineId) return
+        handleBrowserOpenChange(true)
+    }, [handleBrowserOpenChange, isFormDisabled, machineId])
 
     async function handleCreate() {
         if (!machineId || !directory.trim()) return
@@ -291,28 +221,22 @@ export function NewSession(props: {
             />
             <DirectorySection
                 directory={directory}
-                suggestions={suggestions}
-                selectedIndex={selectedIndex}
                 isDisabled={isFormDisabled}
                 recentPaths={recentPaths}
-                canBrowse={Boolean(machineId)}
                 isBrowserOpen={isBrowserOpen}
-                onToggleBrowser={handleToggleBrowser}
+                onBrowserOpenChange={handleBrowserOpenChange}
                 browser={(
                     <DirectoryBrowser
                         api={props.api}
                         machineId={machineId}
                         path={browserPath}
                         isDisabled={isFormDisabled}
+                        suggestionPaths={verifiedPaths}
                         onPathChange={setBrowserPath}
                         onSelectPath={handleBrowserSelect}
                     />
                 )}
-                onDirectoryChange={handleDirectoryChange}
-                onDirectoryFocus={handleDirectoryFocus}
-                onDirectoryBlur={handleDirectoryBlur}
-                onDirectoryKeyDown={handleDirectoryKeyDown}
-                onSuggestionSelect={handleSuggestionSelect}
+                onDirectoryClick={handleDirectoryClick}
                 onPathClick={handlePathClick}
             />
             <SessionTypeSelector

@@ -1,7 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react'
 import type { ApiClient } from '@/api/client'
+import { Autocomplete } from '@/components/ChatInput/Autocomplete'
+import { FloatingOverlay } from '@/components/ChatInput/FloatingOverlay'
 import { Spinner } from '@/components/Spinner'
 import { Button } from '@/components/ui/button'
+import { useActiveSuggestions, type Suggestion } from '@/hooks/useActiveSuggestions'
 import { useMachineDirectory } from '@/hooks/queries/useMachineDirectory'
 import { useTranslation } from '@/lib/use-translation'
 
@@ -61,15 +64,18 @@ export function DirectoryBrowser(props: {
     machineId: string | null
     path: string
     isDisabled: boolean
+    suggestionPaths: readonly string[]
     onPathChange: (path: string) => void
     onSelectPath: (path: string) => void
 }) {
     const { t } = useTranslation()
-    const [newFolderName, setNewFolderName] = useState('')
     const [createError, setCreateError] = useState<string | null>(null)
     const [isCreating, setIsCreating] = useState(false)
+    const [isInputFocused, setIsInputFocused] = useState(false)
+    const [suppressSuggestions, setSuppressSuggestions] = useState(false)
+    const inputRef = useRef<HTMLInputElement>(null)
 
-    const { entries, error, isLoading, refetch, path: resolvedPath } = useMachineDirectory(props.api, props.machineId, props.path, {
+    const { entries, error, isLoading, refetch, path: resolvedPath, pathType } = useMachineDirectory(props.api, props.machineId, props.path, {
         enabled: Boolean(props.machineId)
     })
 
@@ -78,35 +84,103 @@ export function DirectoryBrowser(props: {
         [entries]
     )
 
+    const getSuggestions = useCallback(async (query: string): Promise<Suggestion[]> => {
+        const lowered = query.toLowerCase()
+        return props.suggestionPaths
+            .filter((path) => path.toLowerCase().includes(lowered))
+            .slice(0, 8)
+            .map((path) => ({
+                key: path,
+                text: path,
+                label: path
+            }))
+    }, [props.suggestionPaths])
+
+    const activeQuery = (!isInputFocused || suppressSuggestions) ? null : props.path
+
+    const [suggestions, selectedIndex, moveUp, moveDown, clearSuggestions] = useActiveSuggestions(
+        activeQuery,
+        getSuggestions,
+        { allowEmptyQuery: true, autoSelectFirst: false }
+    )
+
     useEffect(() => {
         setCreateError(null)
     }, [props.path])
 
     useEffect(() => {
-        if (resolvedPath && resolvedPath !== props.path) {
+        if (props.isDisabled) return
+        inputRef.current?.focus()
+    }, [props.isDisabled])
+
+    useEffect(() => {
+        if (!resolvedPath) return
+        if (isInputFocused) return
+        if (!props.path.trim() || resolvedPath !== props.path) {
             props.onPathChange(resolvedPath)
         }
-    }, [resolvedPath, props.path, props.onPathChange])
+    }, [resolvedPath, props.path, props.onPathChange, isInputFocused])
 
-    const effectivePath = normalizePath(resolvedPath ?? props.path)
-    const currentPathLabel = effectivePath || '.'
-    const canGoUp = getParentPath(effectivePath) !== ''
+    const effectivePath = normalizePath(props.path || resolvedPath || '')
+    const canGoUp = pathType === 'directory' && getParentPath(effectivePath) !== ''
+    const isDirectory = pathType === 'directory'
+    const isMissing = pathType === 'missing'
+    const isFile = pathType === 'file'
+    const isOther = pathType === 'other'
+    const showGenericError = Boolean(error && !isMissing && !isFile && !isOther)
+    const hasEntries = isDirectory && (directories.length > 0 || canGoUp)
+
+    const handleSuggestionSelect = useCallback((index: number) => {
+        const suggestion = suggestions[index]
+        if (suggestion) {
+            props.onPathChange(suggestion.text)
+            clearSuggestions()
+            setSuppressSuggestions(true)
+        }
+    }, [suggestions, clearSuggestions, props.onPathChange])
+
+    const handleInputChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+        setSuppressSuggestions(false)
+        props.onPathChange(event.target.value)
+    }, [props.onPathChange])
+
+    const handleInputKeyDown = useCallback((event: KeyboardEvent<HTMLInputElement>) => {
+        if (suggestions.length === 0) return
+
+        if (event.key === 'ArrowUp') {
+            event.preventDefault()
+            moveUp()
+        }
+
+        if (event.key === 'ArrowDown') {
+            event.preventDefault()
+            moveDown()
+        }
+
+        if (event.key === 'Enter' || event.key === 'Tab') {
+            if (selectedIndex >= 0) {
+                event.preventDefault()
+                handleSuggestionSelect(selectedIndex)
+            }
+        }
+
+        if (event.key === 'Escape') {
+            clearSuggestions()
+        }
+    }, [suggestions.length, moveUp, moveDown, selectedIndex, handleSuggestionSelect, clearSuggestions])
 
     async function handleCreateFolder() {
         if (!props.api || !props.machineId) return
-        const trimmed = newFolderName.trim()
-        if (!trimmed || !effectivePath) return
+        if (!effectivePath) return
 
         setIsCreating(true)
         setCreateError(null)
         try {
-            const fullPath = joinPath(effectivePath, trimmed)
-            const result = await props.api.createMachineDirectory(props.machineId, fullPath)
+            const result = await props.api.createMachineDirectory(props.machineId, effectivePath)
             if (!result.success) {
                 setCreateError(result.error ?? 'Failed to create directory')
                 return
             }
-            setNewFolderName('')
             await refetch()
         } catch (error) {
             setCreateError(error instanceof Error ? error.message : 'Failed to create directory')
@@ -125,77 +199,70 @@ export function DirectoryBrowser(props: {
 
     return (
         <div className="rounded-md border border-[var(--app-border)] bg-[var(--app-bg)] p-3 text-sm">
-            <div className="flex items-center justify-between gap-2">
-                <div className="text-xs font-medium text-[var(--app-hint)]">
-                    {t('newSession.browse.current')}
-                </div>
-                <button
-                    type="button"
-                    onClick={() => props.onPathChange(getParentPath(effectivePath))}
-                    disabled={props.isDisabled || !canGoUp}
-                    className="text-xs font-medium text-[var(--app-link)] disabled:opacity-50"
-                >
-                    {t('newSession.browse.up')}
-                </button>
-            </div>
-            <div className="mt-1 truncate rounded bg-[var(--app-subtle-bg)] px-2 py-1 text-xs font-mono">
-                {currentPathLabel}
-            </div>
-
-            <div className="mt-2 max-h-48 overflow-y-auto rounded border border-[var(--app-border)]">
-                {isLoading ? (
-                    <div className="flex items-center gap-2 px-3 py-2 text-xs text-[var(--app-hint)]">
-                        <Spinner size="sm" label={null} />
-                        {t('newSession.browse.loading')}
+            <div className="flex flex-col gap-2">
+                <div className="flex flex-wrap items-start gap-2">
+                    <div className="relative min-w-[180px] flex-1">
+                        <input
+                            ref={inputRef}
+                            type="text"
+                            value={props.path}
+                            onChange={handleInputChange}
+                            onKeyDown={handleInputKeyDown}
+                            onFocus={() => setIsInputFocused(true)}
+                            onBlur={() => setIsInputFocused(false)}
+                            placeholder={t('newSession.placeholder')}
+                            disabled={props.isDisabled}
+                            className="w-full rounded-md border border-[var(--app-border)] bg-[var(--app-bg)] px-2 py-1 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[var(--app-link)] disabled:opacity-50"
+                        />
+                        {suggestions.length > 0 ? (
+                            <div className="absolute left-0 right-0 top-full z-10 mt-1">
+                                <FloatingOverlay maxHeight={200}>
+                                    <Autocomplete
+                                        suggestions={suggestions}
+                                        selectedIndex={selectedIndex}
+                                        onSelect={handleSuggestionSelect}
+                                    />
+                                </FloatingOverlay>
+                            </div>
+                        ) : null}
                     </div>
-                ) : error ? (
-                    <div className="px-3 py-2 text-xs text-red-600">
-                        {error}
-                    </div>
-                ) : directories.length === 0 ? (
-                    <div className="px-3 py-2 text-xs text-[var(--app-hint)]">
-                        {t('newSession.browse.empty')}
-                    </div>
-                ) : (
-                    directories.map((entry) => {
-                        const nextPath = joinPath(effectivePath, entry.name)
-                        return (
-                            <button
-                                key={nextPath}
-                                type="button"
-                                onClick={() => props.onPathChange(nextPath)}
-                                disabled={props.isDisabled}
-                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-[var(--app-subtle-bg)] disabled:opacity-50"
-                            >
-                                <FolderIcon className="text-[var(--app-link)]" />
-                                <span className="truncate">{entry.name}</span>
-                            </button>
-                        )
-                    })
-                )}
-            </div>
-
-            <div className="mt-3 flex flex-col gap-2">
-                <label className="text-xs font-medium text-[var(--app-hint)]">
-                    {t('newSession.browse.newFolder')}
-                </label>
-                <div className="flex gap-2">
-                    <input
-                        type="text"
-                        value={newFolderName}
-                        onChange={(event) => setNewFolderName(event.target.value)}
-                        placeholder={t('newSession.browse.newFolder.placeholder')}
-                        disabled={props.isDisabled || isCreating}
-                        className="flex-1 rounded-md border border-[var(--app-border)] bg-[var(--app-bg)] px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--app-link)] disabled:opacity-50"
-                    />
+                    {isMissing ? (
+                        <Button
+                            variant="secondary"
+                            onClick={handleCreateFolder}
+                            disabled={props.isDisabled || isCreating || isLoading || !effectivePath}
+                        >
+                            {t('newSession.browse.create')}
+                        </Button>
+                    ) : null}
                     <Button
-                        variant="secondary"
-                        onClick={handleCreateFolder}
-                        disabled={props.isDisabled || isCreating || !newFolderName.trim() || !effectivePath}
+                        onClick={() => props.onSelectPath(effectivePath)}
+                        disabled={props.isDisabled || isLoading || !effectivePath || !isDirectory}
                     >
-                        {t('newSession.browse.newFolder.create')}
+                        {t('newSession.browse.ok')}
                     </Button>
                 </div>
+
+                {isFile ? (
+                    <div className="text-xs text-red-600">
+                        {t('newSession.browse.file')}
+                    </div>
+                ) : null}
+                {isOther ? (
+                    <div className="text-xs text-red-600">
+                        {t('newSession.browse.invalid')}
+                    </div>
+                ) : null}
+                {isMissing ? (
+                    <div className="text-xs text-[var(--app-hint)]">
+                        {t('newSession.browse.missing')}
+                    </div>
+                ) : null}
+                {showGenericError ? (
+                    <div className="text-xs text-red-600">
+                        {error}
+                    </div>
+                ) : null}
                 {createError ? (
                     <div className="text-xs text-red-600">
                         {createError}
@@ -203,14 +270,50 @@ export function DirectoryBrowser(props: {
                 ) : null}
             </div>
 
-            <div className="mt-3">
-                <Button
-                    onClick={() => props.onSelectPath(effectivePath)}
-                    disabled={props.isDisabled || !effectivePath}
-                    className="w-full"
-                >
-                    {t('newSession.browse.use')}
-                </Button>
+            <div className="mt-3 max-h-48 overflow-y-auto rounded border border-[var(--app-border)]">
+                {isLoading ? (
+                    <div className="flex items-center gap-2 px-3 py-2 text-xs text-[var(--app-hint)]">
+                        <Spinner size="sm" label={null} />
+                        {t('newSession.browse.loading')}
+                    </div>
+                ) : !isDirectory ? (
+                    <div className="px-3 py-2 text-xs text-[var(--app-hint)]">
+                        {t('newSession.browse.empty')}
+                    </div>
+                ) : !hasEntries ? (
+                    <div className="px-3 py-2 text-xs text-[var(--app-hint)]">
+                        {t('newSession.browse.empty')}
+                    </div>
+                ) : (
+                    <>
+                        {canGoUp ? (
+                            <button
+                                type="button"
+                                onClick={() => props.onPathChange(getParentPath(effectivePath))}
+                                disabled={props.isDisabled}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-[var(--app-subtle-bg)] disabled:opacity-50"
+                            >
+                                <FolderIcon className="text-[var(--app-link)]" />
+                                <span className="truncate">..</span>
+                            </button>
+                        ) : null}
+                        {directories.map((entry) => {
+                            const nextPath = joinPath(effectivePath, entry.name)
+                            return (
+                                <button
+                                    key={nextPath}
+                                    type="button"
+                                    onClick={() => props.onPathChange(nextPath)}
+                                    disabled={props.isDisabled}
+                                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-[var(--app-subtle-bg)] disabled:opacity-50"
+                                >
+                                    <FolderIcon className="text-[var(--app-link)]" />
+                                    <span className="truncate">{entry.name}</span>
+                                </button>
+                            )
+                        })}
+                    </>
+                )}
             </div>
         </div>
     )

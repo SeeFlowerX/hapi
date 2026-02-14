@@ -1,4 +1,5 @@
 import { logger } from '@/ui/logger'
+import { statSync } from 'fs'
 import { mkdir, readdir, stat } from 'fs/promises'
 import { homedir } from 'os'
 import { basename, join, resolve } from 'path'
@@ -21,6 +22,7 @@ interface ListDirectoryResponse {
     success: boolean
     entries?: DirectoryEntry[]
     path?: string
+    pathType?: DirectoryPathType
     error?: string
 }
 
@@ -58,6 +60,8 @@ type DirectoryHandlerOptions = {
     defaultPath?: string
 }
 
+type DirectoryPathType = 'directory' | 'file' | 'other' | 'missing'
+
 function expandHomePath(value: string): string {
     const trimmed = value.trim()
     if (trimmed === '~') {
@@ -85,6 +89,26 @@ function resolveTargetPath(
     return { resolvedPath: resolve(expandedPath) }
 }
 
+function getDefaultDirectoryPath(workingDirectory: string, options?: DirectoryHandlerOptions): string {
+    if (options?.defaultPath) {
+        return options.defaultPath
+    }
+
+    if (options?.allowOutsideWorkingDirectory) {
+        const desktopPath = join(homedir(), 'Desktop')
+        try {
+            if (statSync(desktopPath).isDirectory()) {
+                return desktopPath
+            }
+        } catch {
+            // ignore
+        }
+        return homedir()
+    }
+
+    return workingDirectory || '.'
+}
+
 export function registerDirectoryHandlers(
     rpcHandlerManager: RpcHandlerManager,
     workingDirectory: string,
@@ -93,8 +117,7 @@ export function registerDirectoryHandlers(
     rpcHandlerManager.registerHandler<ListDirectoryRequest, ListDirectoryResponse>('listDirectory', async (data) => {
         logger.debug('List directory request:', data.path)
 
-        const fallbackPath = options?.defaultPath
-            ?? (options?.allowOutsideWorkingDirectory ? homedir() : '.')
+        const fallbackPath = getDefaultDirectoryPath(workingDirectory, options)
         const targetPath = data.path?.trim() || fallbackPath
         const resolved = resolveTargetPath(targetPath, workingDirectory, options)
         if (resolved.error) {
@@ -102,6 +125,32 @@ export function registerDirectoryHandlers(
         }
 
         try {
+            let stats
+            try {
+                stats = await stat(resolved.resolvedPath)
+            } catch (error) {
+                if (error && typeof error === 'object' && 'code' in error) {
+                    const code = (error as { code?: string }).code
+                    if (code === 'ENOENT') {
+                        return rpcError('Path does not exist', {
+                            path: resolved.resolvedPath,
+                            pathType: 'missing' as DirectoryPathType
+                        })
+                    }
+                }
+                return rpcError(getErrorMessage(error, 'Failed to access directory'), {
+                    path: resolved.resolvedPath
+                })
+            }
+
+            if (!stats.isDirectory()) {
+                const pathType: DirectoryPathType = stats.isFile() ? 'file' : 'other'
+                return rpcError(stats.isFile() ? 'Path is a file' : 'Path is not a directory', {
+                    path: resolved.resolvedPath,
+                    pathType
+                })
+            }
+
             const entries = await readdir(resolved.resolvedPath, { withFileTypes: true })
 
             const directoryEntries: DirectoryEntry[] = await Promise.all(
@@ -144,7 +193,12 @@ export function registerDirectoryHandlers(
                 return a.name.localeCompare(b.name)
             })
 
-            return { success: true, entries: directoryEntries, path: resolved.resolvedPath }
+            return {
+                success: true,
+                entries: directoryEntries,
+                path: resolved.resolvedPath,
+                pathType: 'directory'
+            }
         } catch (error) {
             logger.debug('Failed to list directory:', error)
             return rpcError(getErrorMessage(error, 'Failed to list directory'))
