@@ -137,29 +137,48 @@ export function StatusBar(props: {
     const permissionModeLabel = displayPermissionMode ? getPermissionModeLabel(displayPermissionMode) : null
     const permissionModeTone = displayPermissionMode ? getPermissionModeTone(displayPermissionMode) : null
     const permissionModeColor = permissionModeTone ? PERMISSION_TONE_CLASSES[permissionModeTone] : 'text-[var(--app-hint)]'
+    const maxContextSize = useMemo(() => getContextBudgetTokens(props.modelMode), [props.modelMode])
+    const usagePercent = useMemo(() => {
+        if (props.contextSize === undefined || props.contextSize === null || !maxContextSize) return null
+        const percent = Math.min(100, Math.max(0, (props.contextSize / maxContextSize) * 100))
+        return percent
+    }, [props.contextSize, maxContextSize])
+    const usageColor = useMemo(() => {
+        if (usagePercent === null) return 'bg-[var(--app-divider)]'
+        if (usagePercent >= 90) return 'bg-red-500'
+        if (usagePercent >= 80) return 'bg-amber-500'
+        return 'bg-[var(--app-link)]'
+    }, [usagePercent])
 
     return (
-        <div className="flex items-center justify-between px-2 pb-1">
-            <div className="flex items-baseline gap-3">
-                <div className="flex items-center gap-1.5">
-                    <span
-                        className={`h-2 w-2 rounded-full ${connectionStatus.dotColor} ${connectionStatus.isPulsing ? 'animate-pulse' : ''}`}
-                    />
-                    <span className={`text-xs ${connectionStatus.color}`}>
-                        {connectionStatus.text}
-                    </span>
+        <div className="flex flex-col gap-1 px-2 pb-1">
+            <div className="flex items-center justify-between">
+                <div className="flex items-baseline gap-3">
+                    <div className="flex items-center gap-1.5">
+                        <span
+                            className={`h-2 w-2 rounded-full ${connectionStatus.dotColor} ${connectionStatus.isPulsing ? 'animate-pulse' : ''}`}
+                        />
+                        <span className={`text-xs ${connectionStatus.color}`}>
+                            {connectionStatus.text}
+                        </span>
+                    </div>
+                    {contextWarning ? (
+                        <span className={`text-[10px] ${contextWarning.color}`}>
+                            {contextWarning.text}
+                        </span>
+                    ) : null}
                 </div>
-                {contextWarning ? (
-                    <span className={`text-[10px] ${contextWarning.color}`}>
-                        {contextWarning.text}
+
+                {displayPermissionMode ? (
+                    <span className={`text-xs ${permissionModeColor}`}>
+                        {permissionModeLabel}
                     </span>
                 ) : null}
             </div>
-
-            {displayPermissionMode ? (
-                <span className={`text-xs ${permissionModeColor}`}>
-                    {permissionModeLabel}
-                </span>
+            {usagePercent !== null ? (
+                <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--app-divider)]">
+                    <div className={`h-full ${usageColor}`} style={{ width: `${usagePercent}%` }} />
+                </div>
             ) : null}
         </div>
     )

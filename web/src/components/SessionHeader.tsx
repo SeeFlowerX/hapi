@@ -75,27 +75,6 @@ function MoreVerticalIcon(props: { className?: string }) {
     )
 }
 
-function StatusIcon(props: { className?: string }) {
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={props.className}
-        >
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="10" x2="12" y2="16" />
-            <line x1="12" y1="7" x2="12" y2="7" />
-        </svg>
-    )
-}
-
 export function SessionHeader(props: {
     session: Session
     codexModelLabel?: string | null
@@ -537,15 +516,6 @@ export function SessionHeader(props: {
 
                     <button
                         type="button"
-                        onClick={() => setStatusOpen(true)}
-                        className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]"
-                        title={t('session.status.title')}
-                    >
-                        <StatusIcon className="h-4 w-4" />
-                    </button>
-
-                    <button
-                        type="button"
                         onClick={handleMenuToggle}
                         onPointerDown={(e) => e.stopPropagation()}
                         ref={menuAnchorRef}
@@ -566,6 +536,7 @@ export function SessionHeader(props: {
                 sessionActive={session.active}
                 onActivate={handleActivate}
                 activateDisabled={activatePending || isPending || isReadOnly}
+                onStatus={() => setStatusOpen(true)}
                 onRename={() => setRenameOpen(true)}
                 onArchive={() => setArchiveOpen(true)}
                 onDelete={() => setDeleteOpen(true)}

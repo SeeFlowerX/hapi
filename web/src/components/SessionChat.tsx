@@ -228,6 +228,22 @@ export function SessionChat(props: {
         () => reduceChatBlocks(normalizedMessages, props.session.agentState),
         [normalizedMessages, props.session.agentState]
     )
+    const contextSize = useMemo(() => {
+        if (reduced.latestUsage?.contextSize !== undefined) {
+            return reduced.latestUsage.contextSize
+        }
+        const tokenUsage = props.session.agentState?.tokenUsage
+        if (!tokenUsage) {
+            return undefined
+        }
+        const inputTokens = tokenUsage.inputTokens ?? tokenUsage.totalTokens ?? null
+        if (inputTokens === null) {
+            return undefined
+        }
+        const cacheCreation = tokenUsage.cacheCreationInputTokens ?? 0
+        const cacheRead = tokenUsage.cacheReadInputTokens ?? 0
+        return inputTokens + cacheCreation + cacheRead
+    }, [reduced.latestUsage?.contextSize, props.session.agentState?.tokenUsage])
     const reconciled = useMemo(
         () => reconcileChatBlocks(reduced.blocks, blocksByIdRef.current),
         [reduced.blocks]
@@ -438,7 +454,7 @@ export function SessionChat(props: {
                         allowSendWhenInactive
                         thinking={props.session.thinking}
                         agentState={props.session.agentState}
-                        contextSize={reduced.latestUsage?.contextSize}
+                        contextSize={contextSize}
                         controlledByUser={props.session.agentState?.controlledByUser === true}
                         onPermissionModeChange={isReadOnly ? undefined : handlePermissionModeChange}
                         onModelModeChange={isReadOnly ? undefined : handleModelModeChange}
