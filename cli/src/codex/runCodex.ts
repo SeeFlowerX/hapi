@@ -33,7 +33,8 @@ export async function runCodex(opts: {
         flavor: 'codex',
         startedBy,
         workingDirectory,
-        agentState: state
+        agentState: state,
+        resumeSessionId: opts.resumeSessionId ?? null
     });
 
     const startingMode: 'local' | 'remote' = startedBy === 'runner' ? 'remote' : 'local';

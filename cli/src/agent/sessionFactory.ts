@@ -21,6 +21,7 @@ export type SessionBootstrapOptions = {
     workingDirectory?: string
     tag?: string
     agentState?: AgentState | null
+    resumeSessionId?: string | null
 }
 
 export type SessionBootstrapResult = {
@@ -50,12 +51,13 @@ export function buildSessionMetadata(options: {
     workingDirectory: string
     machineId: string
     now?: number
+    resumeSessionId?: string | null
 }): Metadata {
     const happyLibDir = runtimePath()
     const worktreeInfo = readWorktreeEnv()
     const now = options.now ?? Date.now()
 
-    return {
+    const metadata: Metadata = {
         path: options.workingDirectory,
         host: os.hostname(),
         version: packageJson.version,
@@ -73,6 +75,21 @@ export function buildSessionMetadata(options: {
         flavor: options.flavor,
         worktree: worktreeInfo ?? undefined
     }
+
+    const resumeSessionId = options.resumeSessionId
+    if (resumeSessionId) {
+        if (options.flavor === 'codex') {
+            metadata.codexSessionId = resumeSessionId
+        } else if (options.flavor === 'gemini') {
+            metadata.geminiSessionId = resumeSessionId
+        } else if (options.flavor === 'opencode') {
+            metadata.opencodeSessionId = resumeSessionId
+        } else if (options.flavor === 'claude') {
+            metadata.claudeSessionId = resumeSessionId
+        }
+    }
+
+    return metadata
 }
 
 async function getMachineIdOrExit(): Promise<string> {
@@ -118,7 +135,8 @@ export async function bootstrapSession(options: SessionBootstrapOptions): Promis
         flavor: options.flavor,
         startedBy,
         workingDirectory,
-        machineId
+        machineId,
+        resumeSessionId: options.resumeSessionId ?? null
     })
 
     const sessionInfo = await api.getOrCreateSession({

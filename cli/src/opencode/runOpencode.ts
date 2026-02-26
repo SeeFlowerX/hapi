@@ -37,7 +37,8 @@ export async function runOpencode(opts: {
         flavor: 'opencode',
         startedBy,
         workingDirectory,
-        agentState: initialState
+        agentState: initialState,
+        resumeSessionId: opts.resumeSessionId ?? null
     });
 
     const startingMode: 'local' | 'remote' = opts.startingMode
