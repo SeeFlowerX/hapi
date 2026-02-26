@@ -20,6 +20,7 @@ import { registerAppServerPermissionHandlers } from './utils/appServerPermission
 import { buildThreadStartParams, buildTurnStartParams } from './utils/appServerConfig';
 import { shouldIgnoreTerminalEvent } from './utils/terminalEventGuard';
 import { normalizeTokenUsage } from './utils/normalizeTokenUsage';
+import { parseSpecialCommand } from '@/parsers/specialCommands';
 import {
     RemoteLauncherBase,
     type RemoteLauncherDisplayContext,
@@ -651,6 +652,73 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
                 diffProcessor.reset();
                 session.onThinkingChange(false);
                 continue;
+            }
+
+            if (useAppServer) {
+                const specialCommand = parseSpecialCommand(message.message);
+                if (specialCommand.type === 'compact') {
+                    if (!appServerClient) {
+                        continue;
+                    }
+
+                    if (turnInFlight) {
+                        const busyMessage = 'Cannot compact while a turn is active. Try again after completion.';
+                        messageBuffer.addMessage(busyMessage, 'status');
+                        session.sendSessionEvent({ type: 'message', message: busyMessage });
+                        continue;
+                    }
+
+                    let threadId = this.currentThreadId;
+                    if (!threadId) {
+                        const resumeCandidate = session.sessionId;
+                        if (resumeCandidate) {
+                            const threadParams = buildThreadStartParams({
+                                mode: message.mode,
+                                mcpServers,
+                                cliOverrides: session.codexCliOverrides
+                            });
+                            try {
+                                const resumeResponse = await appServerClient.resumeThread({
+                                    threadId: resumeCandidate,
+                                    ...threadParams
+                                }, {
+                                    signal: this.abortController.signal
+                                });
+                                const resumeRecord = asRecord(resumeResponse);
+                                const resumeThread = resumeRecord ? asRecord(resumeRecord.thread) : null;
+                                threadId = asString(resumeThread?.id) ?? resumeCandidate;
+                                if (threadId) {
+                                    this.currentThreadId = threadId;
+                                    session.onSessionFound(threadId);
+                                }
+                            } catch (error) {
+                                logger.warn(`[Codex] Failed to resume app-server thread ${resumeCandidate} for /compact`, error);
+                            }
+                        }
+                    }
+
+                    if (!threadId) {
+                        const noThreadMessage = 'No active Codex thread to compact.';
+                        messageBuffer.addMessage(noThreadMessage, 'status');
+                        session.sendSessionEvent({ type: 'message', message: noThreadMessage });
+                        continue;
+                    }
+
+                    try {
+                        await appServerClient.compactThread({ threadId }, {
+                            signal: this.abortController.signal
+                        });
+                        const compactMessage = 'Context compaction started.';
+                        messageBuffer.addMessage(compactMessage, 'status');
+                        session.sendSessionEvent({ type: 'message', message: compactMessage });
+                    } catch (error) {
+                        const errorMessage = error instanceof Error ? error.message : String(error);
+                        const compactError = `Context compaction failed: ${errorMessage}`;
+                        messageBuffer.addMessage(compactError, 'status');
+                        session.sendSessionEvent({ type: 'message', message: compactError });
+                    }
+                    continue;
+                }
             }
 
             messageBuffer.addMessage(message.message, 'user');

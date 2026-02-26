@@ -59,6 +59,14 @@ export interface ThreadResumeResponse {
     [key: string]: unknown;
 }
 
+export interface ThreadCompactStartParams {
+    threadId: string;
+}
+
+export interface ThreadCompactStartResponse {
+    [key: string]: unknown;
+}
+
 export type UserInput =
     | {
         type: 'text';
