@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import {
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useMemo,
+    useRef,
+    useState,
+    type CSSProperties
+} from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import type { Machine, SessionSummary } from '@/types/api'
@@ -184,6 +192,124 @@ function ChevronIcon(props: { className?: string; collapsed?: boolean }) {
         >
             <polyline points="9 18 15 12 9 6" />
         </svg>
+    )
+}
+
+type DirectoryMenuTarget = {
+    machineId: string
+    directory: string
+}
+
+type MenuPosition = {
+    top: number
+    left: number
+    transformOrigin: string
+}
+
+function DirectoryActionMenu(props: {
+    isOpen: boolean
+    onClose: () => void
+    anchorPoint: { x: number; y: number }
+    onNewSession: () => void
+}) {
+    const { t } = useTranslation()
+    const menuRef = useRef<HTMLDivElement | null>(null)
+    const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null)
+
+    const updatePosition = useCallback(() => {
+        const menuEl = menuRef.current
+        if (!menuEl) return
+
+        const menuRect = menuEl.getBoundingClientRect()
+        const viewportWidth = window.innerWidth
+        const viewportHeight = window.innerHeight
+        const padding = 8
+        const gap = 8
+
+        const spaceBelow = viewportHeight - props.anchorPoint.y
+        const spaceAbove = props.anchorPoint.y
+        const openAbove = spaceBelow < menuRect.height + gap && spaceAbove > spaceBelow
+
+        let top = openAbove ? props.anchorPoint.y - menuRect.height - gap : props.anchorPoint.y + gap
+        let left = props.anchorPoint.x - menuRect.width / 2
+        const transformOrigin = openAbove ? 'bottom center' : 'top center'
+
+        top = Math.min(Math.max(top, padding), viewportHeight - menuRect.height - padding)
+        left = Math.min(Math.max(left, padding), viewportWidth - menuRect.width - padding)
+
+        setMenuPosition({ top, left, transformOrigin })
+    }, [props.anchorPoint])
+
+    useLayoutEffect(() => {
+        if (!props.isOpen) return
+        updatePosition()
+    }, [props.isOpen, updatePosition])
+
+    useEffect(() => {
+        if (!props.isOpen) {
+            setMenuPosition(null)
+            return
+        }
+
+        const handlePointerDown = (event: PointerEvent) => {
+            const target = event.target as Node
+            if (menuRef.current?.contains(target)) return
+            props.onClose()
+        }
+
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                props.onClose()
+            }
+        }
+
+        const handleReflow = () => {
+            updatePosition()
+        }
+
+        document.addEventListener('pointerdown', handlePointerDown)
+        document.addEventListener('keydown', handleKeyDown)
+        window.addEventListener('resize', handleReflow)
+        window.addEventListener('scroll', handleReflow, true)
+
+        return () => {
+            document.removeEventListener('pointerdown', handlePointerDown)
+            document.removeEventListener('keydown', handleKeyDown)
+            window.removeEventListener('resize', handleReflow)
+            window.removeEventListener('scroll', handleReflow, true)
+        }
+    }, [props.isOpen, props.onClose, updatePosition])
+
+    if (!props.isOpen) return null
+
+    const menuStyle: CSSProperties | undefined = menuPosition
+        ? {
+            top: menuPosition.top,
+            left: menuPosition.left,
+            transformOrigin: menuPosition.transformOrigin
+        }
+        : undefined
+
+    return (
+        <div
+            ref={menuRef}
+            className="fixed z-50 min-w-[200px] rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] p-1 shadow-lg animate-menu-pop"
+            style={menuStyle}
+            role="menu"
+        >
+            <button
+                type="button"
+                role="menuitem"
+                className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-base transition-colors hover:bg-[var(--app-subtle-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-link)]"
+                onClick={() => {
+                    props.onClose()
+                    props.onNewSession()
+                }}
+            >
+                <PlusIcon className="h-4 w-4 text-[var(--app-hint)]" />
+                {t('sessions.new')}
+            </button>
+        </div>
     )
 }
 
@@ -461,6 +587,53 @@ function SessionItem(props: {
     )
 }
 
+function DirectoryGroupRow(props: {
+    machineId: string
+    directory: string
+    displayName: string
+    sessionCount: number
+    isCollapsed: boolean
+    onToggle: () => void
+    onOpenMenu: (point: { x: number; y: number }) => void
+    menuEnabled: boolean
+}) {
+    const { haptic } = usePlatform()
+
+    const longPressHandlers = useLongPress({
+        onLongPress: (point) => {
+            if (!props.menuEnabled) return
+            haptic.impact('medium')
+            props.onOpenMenu(point)
+        },
+        onClick: () => {
+            props.onToggle()
+        },
+        threshold: 500,
+        disabled: !props.menuEnabled
+    })
+
+    return (
+        <button
+            type="button"
+            {...longPressHandlers}
+            className="flex min-w-0 flex-1 items-center gap-2 text-left transition-colors hover:bg-[var(--app-secondary-bg)]"
+        >
+            <ChevronIcon
+                className="h-4 w-4 text-[var(--app-hint)]"
+                collapsed={props.isCollapsed}
+            />
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+                <span className="font-medium text-base break-words" title={props.directory}>
+                    {props.displayName}
+                </span>
+                <span className="shrink-0 text-xs text-[var(--app-hint)]">
+                    ({props.sessionCount})
+                </span>
+            </div>
+        </button>
+    )
+}
+
 export function SessionList(props: {
     sessions: SessionSummary[]
     machines: Machine[]
@@ -511,6 +684,9 @@ export function SessionList(props: {
     const [collapseOverrides, setCollapseOverrides] = useState<Map<string, boolean>>(
         () => new Map()
     )
+    const [directoryMenuOpen, setDirectoryMenuOpen] = useState(false)
+    const [directoryMenuAnchorPoint, setDirectoryMenuAnchorPoint] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+    const [directoryMenuTarget, setDirectoryMenuTarget] = useState<DirectoryMenuTarget | null>(null)
     const isGroupCollapsed = (machineId: string, group: SessionGroup): boolean => {
         const key = `${machineId}:${group.directory}`
         const override = collapseOverrides.get(key)
@@ -588,6 +764,16 @@ export function SessionList(props: {
         } finally {
             setSyncingMachineId(null)
         }
+    }
+
+    const handleDirectoryMenuOpen = (point: { x: number; y: number }, target: DirectoryMenuTarget) => {
+        setDirectoryMenuAnchorPoint(point)
+        setDirectoryMenuTarget(target)
+        setDirectoryMenuOpen(true)
+    }
+
+    const handleDirectoryMenuClose = () => {
+        setDirectoryMenuOpen(false)
     }
 
     return (
@@ -674,37 +860,23 @@ export function SessionList(props: {
 
                         {machineGroup.directoryGroups.map((group) => {
                             const isCollapsed = isGroupCollapsed(machineGroup.machineId, group)
+                            const menuEnabled = machineGroup.machineId !== 'unknown'
                             return (
                                 <div key={`${machineGroup.machineId}:${group.directory}`}>
                                     <div className="sticky top-0 z-10 flex w-full items-center gap-2 px-3 py-2 bg-[var(--app-bg)] border-b border-[var(--app-divider)]">
-                                        <button
-                                            type="button"
-                                            onClick={() => toggleGroup(machineGroup.machineId, group.directory, isCollapsed)}
-                                            className="flex min-w-0 flex-1 items-center gap-2 text-left transition-colors hover:bg-[var(--app-secondary-bg)]"
-                                        >
-                                            <ChevronIcon
-                                                className="h-4 w-4 text-[var(--app-hint)]"
-                                                collapsed={isCollapsed}
-                                            />
-                                            <div className="flex items-center gap-2 min-w-0 flex-1">
-                                                <span className="font-medium text-base break-words" title={group.directory}>
-                                                    {group.displayName}
-                                                </span>
-                                                <span className="shrink-0 text-xs text-[var(--app-hint)]">
-                                                    ({group.sessions.length})
-                                                </span>
-                                            </div>
-                                        </button>
-                                        {machineGroup.machineId !== 'unknown' ? (
-                                            <button
-                                                type="button"
-                                                onClick={() => handleNewSession(machineGroup.machineId, group.directory)}
-                                                className="shrink-0 rounded-full border px-2 py-1 text-[10px] font-semibold text-[var(--app-link)] transition-colors border-[var(--app-border)] hover:bg-[var(--app-secondary-bg)]"
-                                                title={t('sessions.new')}
-                                            >
-                                                <PlusIcon className="h-3.5 w-3.5" />
-                                            </button>
-                                        ) : null}
+                                        <DirectoryGroupRow
+                                            machineId={machineGroup.machineId}
+                                            directory={group.directory}
+                                            displayName={group.displayName}
+                                            sessionCount={group.sessions.length}
+                                            isCollapsed={isCollapsed}
+                                            onToggle={() => toggleGroup(machineGroup.machineId, group.directory, isCollapsed)}
+                                            onOpenMenu={(point) => handleDirectoryMenuOpen(point, {
+                                                machineId: machineGroup.machineId,
+                                                directory: group.directory
+                                            })}
+                                            menuEnabled={menuEnabled}
+                                        />
                                     </div>
                                     {!isCollapsed ? (
                                         <div className="flex flex-col divide-y divide-[var(--app-divider)]">
@@ -727,6 +899,15 @@ export function SessionList(props: {
                     </div>
                 ))}
             </div>
+            <DirectoryActionMenu
+                isOpen={directoryMenuOpen && Boolean(directoryMenuTarget)}
+                onClose={handleDirectoryMenuClose}
+                anchorPoint={directoryMenuAnchorPoint}
+                onNewSession={() => {
+                    if (!directoryMenuTarget) return
+                    handleNewSession(directoryMenuTarget.machineId, directoryMenuTarget.directory)
+                }}
+            />
         </div>
     )
 }
