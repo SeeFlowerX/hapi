@@ -88,10 +88,12 @@ export function SessionHeader(props: {
     const { addToast } = useToast()
     const navigate = useNavigate()
     const queryClient = useQueryClient()
-    const { copied, copy } = useCopyToClipboard()
+    const { copied: worktreeCopied, copy: copyWorktree } = useCopyToClipboard()
+    const { copied: codexCopied, copy: copyCodex } = useCopyToClipboard()
     const { session, api, onSessionDeleted } = props
     const title = useMemo(() => getSessionTitle(session), [session])
     const worktreeBranch = session.metadata?.worktree?.branch
+    const codexSessionId = session.metadata?.codexSessionId
     const isReadOnly = Boolean(session.metadata?.readOnly)
     const { machines } = useMachines(api, true)
     const machineLabel = useMemo(() => {
@@ -241,7 +243,7 @@ export function SessionHeader(props: {
     const handleWorktreeCopy = useCallback(() => {
         if (!worktreeBranch) return
         void (async () => {
-            const ok = await copy(worktreeBranch)
+            const ok = await copyWorktree(worktreeBranch)
             if (!ok) {
                 addToast({
                     title: t('toast.copyFailed.title'),
@@ -258,7 +260,7 @@ export function SessionHeader(props: {
                 url: ''
             })
         })()
-    }, [copy, worktreeBranch, addToast, t, session.id])
+    }, [copyWorktree, worktreeBranch, addToast, t, session.id])
 
     const baseDirectory = session.metadata?.worktree?.basePath ?? session.metadata?.path ?? null
     const isWorktreeSession = Boolean(session.metadata?.worktree)
@@ -390,12 +392,12 @@ export function SessionHeader(props: {
                                 <ReadOnlyBadge reason={session.metadata?.readOnlyReason} />
                             ) : null}
                         </div>
-                        {machineLabel ? (
-                            <div className="truncate text-xs text-[var(--app-hint)]">
-                                {machineLabel}
-                            </div>
-                        ) : null}
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-[var(--app-hint)]">
+                        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--app-hint)]">
+                            {machineLabel ? (
+                                <span className="min-w-0">
+                                    {machineLabel}
+                                </span>
+                            ) : null}
                             <span className="inline-flex items-center gap-1">
                                 <span aria-hidden="true">❖</span>
                                 {session.metadata?.flavor?.trim() || 'unknown'}
@@ -409,6 +411,24 @@ export function SessionHeader(props: {
                                     {t('session.item.modelMode')}: {session.modelMode || 'default'}
                                 </span>
                             )}
+                            {codexSessionId ? (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        void copyCodex(codexSessionId)
+                                    }}
+                                    className="min-w-0 inline-flex items-center gap-1 text-[var(--app-hint)] hover:text-[var(--app-fg)] transition-colors"
+                                    title={t('button.copy')}
+                                >
+                                    <span className="shrink-0">{t('session.item.codexSession')}:</span>
+                                    <span className="min-w-0 truncate">{codexSessionId}</span>
+                                    {codexCopied ? (
+                                        <span className="shrink-0 rounded-full bg-[var(--app-secondary-bg)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--app-link)]">
+                                            {t('toast.copy.title')}
+                                        </span>
+                                    ) : null}
+                                </button>
+                            ) : null}
                             {worktreeBranch ? (
                                 <button
                                     type="button"
@@ -418,7 +438,7 @@ export function SessionHeader(props: {
                                 >
                                     <span className="shrink-0">{t('session.item.worktree')}:</span>
                                     <span className="min-w-0 truncate">{worktreeBranch}</span>
-                                    {copied ? (
+                                    {worktreeCopied ? (
                                         <span className="shrink-0 rounded-full bg-[var(--app-secondary-bg)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--app-link)]">
                                             {t('toast.copy.title')}
                                         </span>

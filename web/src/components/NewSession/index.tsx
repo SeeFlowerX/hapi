@@ -3,8 +3,6 @@ import type { ApiClient } from '@/api/client'
 import type { Machine } from '@/types/api'
 import { usePlatform } from '@/hooks/usePlatform'
 import { useSpawnSession } from '@/hooks/mutations/useSpawnSession'
-import { useSessions } from '@/hooks/queries/useSessions'
-import { useDirectorySuggestions } from '@/hooks/useDirectorySuggestions'
 import { useRecentPaths } from '@/hooks/useRecentPaths'
 import { normalizeCodexModel } from '@/lib/codexModels'
 import { setPendingCodexModel } from '@/lib/pendingCodexModel'
@@ -33,7 +31,6 @@ export function NewSession(props: {
 }) {
     const { haptic } = usePlatform()
     const { spawnSession, isPending, error: spawnError } = useSpawnSession(props.api)
-    const { sessions } = useSessions(props.api)
     const isFormDisabled = Boolean(isPending || props.isLoading)
     const { getRecentPaths, addRecentPath, getLastUsedMachineId, setLastUsedMachineId } = useRecentPaths()
 
@@ -41,7 +38,6 @@ export function NewSession(props: {
     const [directory, setDirectory] = useState('')
     const [browserPath, setBrowserPath] = useState('')
     const [isBrowserOpen, setIsBrowserOpen] = useState(false)
-    const [pathExistence, setPathExistence] = useState<Record<string, boolean>>({})
     const [agent, setAgent] = useState<AgentType>(loadPreferredAgent)
     const [model, setModel] = useState('auto')
     const [yoloMode, setYoloMode] = useState(loadPreferredYoloMode)
@@ -97,41 +93,6 @@ export function NewSession(props: {
     const recentPaths = useMemo(
         () => getRecentPaths(machineId),
         [getRecentPaths, machineId]
-    )
-
-    const allPaths = useDirectorySuggestions(machineId, sessions, recentPaths)
-
-    const pathsToCheck = useMemo(
-        () => Array.from(new Set(allPaths)).slice(0, 1000),
-        [allPaths]
-    )
-
-    useEffect(() => {
-        let cancelled = false
-
-        if (!machineId || pathsToCheck.length === 0) {
-            setPathExistence({})
-            return () => { cancelled = true }
-        }
-
-        void props.api.checkMachinePathsExists(machineId, pathsToCheck)
-            .then((result) => {
-                if (cancelled) return
-                setPathExistence(result.exists ?? {})
-            })
-            .catch(() => {
-                if (cancelled) return
-                setPathExistence({})
-            })
-
-        return () => {
-            cancelled = true
-        }
-    }, [machineId, pathsToCheck, props.api])
-
-    const verifiedPaths = useMemo(
-        () => allPaths.filter((path) => pathExistence[path]),
-        [allPaths, pathExistence]
     )
 
     const handleMachineChange = useCallback((newMachineId: string) => {
@@ -235,7 +196,6 @@ export function NewSession(props: {
                         machineId={machineId}
                         path={browserPath}
                         isDisabled={isFormDisabled}
-                        suggestionPaths={verifiedPaths}
                         onPathChange={setBrowserPath}
                         onSelectPath={handleBrowserSelect}
                     />

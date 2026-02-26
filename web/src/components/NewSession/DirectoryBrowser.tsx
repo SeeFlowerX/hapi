@@ -1,10 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import type { ApiClient } from '@/api/client'
-import { Autocomplete } from '@/components/ChatInput/Autocomplete'
-import { FloatingOverlay } from '@/components/ChatInput/FloatingOverlay'
 import { Spinner } from '@/components/Spinner'
 import { Button } from '@/components/ui/button'
-import { useActiveSuggestions, type Suggestion } from '@/hooks/useActiveSuggestions'
 import { useMachineDirectory } from '@/hooks/queries/useMachineDirectory'
 import { useTranslation } from '@/lib/use-translation'
 
@@ -64,7 +61,6 @@ export function DirectoryBrowser(props: {
     machineId: string | null
     path: string
     isDisabled: boolean
-    suggestionPaths: readonly string[]
     onPathChange: (path: string) => void
     onSelectPath: (path: string) => void
 }) {
@@ -72,7 +68,6 @@ export function DirectoryBrowser(props: {
     const [createError, setCreateError] = useState<string | null>(null)
     const [isCreating, setIsCreating] = useState(false)
     const [isInputFocused, setIsInputFocused] = useState(false)
-    const [suppressSuggestions, setSuppressSuggestions] = useState(false)
     const inputRef = useRef<HTMLInputElement>(null)
 
     const { entries, error, isLoading, refetch, path: resolvedPath, pathType } = useMachineDirectory(props.api, props.machineId, props.path, {
@@ -82,26 +77,6 @@ export function DirectoryBrowser(props: {
     const directories = useMemo(
         () => entries.filter((entry) => entry.type === 'directory'),
         [entries]
-    )
-
-    const getSuggestions = useCallback(async (query: string): Promise<Suggestion[]> => {
-        const lowered = query.toLowerCase()
-        return props.suggestionPaths
-            .filter((path) => path.toLowerCase().includes(lowered))
-            .slice(0, 8)
-            .map((path) => ({
-                key: path,
-                text: path,
-                label: path
-            }))
-    }, [props.suggestionPaths])
-
-    const activeQuery = (!isInputFocused || suppressSuggestions) ? null : props.path
-
-    const [suggestions, selectedIndex, moveUp, moveDown, clearSuggestions] = useActiveSuggestions(
-        activeQuery,
-        getSuggestions,
-        { allowEmptyQuery: true, autoSelectFirst: false }
     )
 
     useEffect(() => {
@@ -130,44 +105,9 @@ export function DirectoryBrowser(props: {
     const showGenericError = Boolean(error && !isMissing && !isFile && !isOther)
     const hasEntries = isDirectory && (directories.length > 0 || canGoUp)
 
-    const handleSuggestionSelect = useCallback((index: number) => {
-        const suggestion = suggestions[index]
-        if (suggestion) {
-            props.onPathChange(suggestion.text)
-            clearSuggestions()
-            setSuppressSuggestions(true)
-        }
-    }, [suggestions, clearSuggestions, props.onPathChange])
-
     const handleInputChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
-        setSuppressSuggestions(false)
         props.onPathChange(event.target.value)
     }, [props.onPathChange])
-
-    const handleInputKeyDown = useCallback((event: KeyboardEvent<HTMLInputElement>) => {
-        if (suggestions.length === 0) return
-
-        if (event.key === 'ArrowUp') {
-            event.preventDefault()
-            moveUp()
-        }
-
-        if (event.key === 'ArrowDown') {
-            event.preventDefault()
-            moveDown()
-        }
-
-        if (event.key === 'Enter' || event.key === 'Tab') {
-            if (selectedIndex >= 0) {
-                event.preventDefault()
-                handleSuggestionSelect(selectedIndex)
-            }
-        }
-
-        if (event.key === 'Escape') {
-            clearSuggestions()
-        }
-    }, [suggestions.length, moveUp, moveDown, selectedIndex, handleSuggestionSelect, clearSuggestions])
 
     async function handleCreateFolder() {
         if (!props.api || !props.machineId) return
@@ -207,24 +147,12 @@ export function DirectoryBrowser(props: {
                             type="text"
                             value={props.path}
                             onChange={handleInputChange}
-                            onKeyDown={handleInputKeyDown}
                             onFocus={() => setIsInputFocused(true)}
                             onBlur={() => setIsInputFocused(false)}
                             placeholder={t('newSession.placeholder')}
                             disabled={props.isDisabled}
                             className="w-full rounded-md border border-[var(--app-border)] bg-[var(--app-bg)] px-2 py-1 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[var(--app-link)] disabled:opacity-50"
                         />
-                        {suggestions.length > 0 ? (
-                            <div className="absolute left-0 right-0 top-full z-10 mt-1">
-                                <FloatingOverlay maxHeight={200}>
-                                    <Autocomplete
-                                        suggestions={suggestions}
-                                        selectedIndex={selectedIndex}
-                                        onSelect={handleSuggestionSelect}
-                                    />
-                                </FloatingOverlay>
-                            </div>
-                        ) : null}
                     </div>
                     {isMissing ? (
                         <Button
