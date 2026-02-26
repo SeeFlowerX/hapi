@@ -473,6 +473,7 @@ export function SessionList(props: {
     const { t } = useTranslation()
     const { renderHeader = true, api, selectedSessionId } = props
     const { addToast } = useToast()
+    const navigate = useNavigate()
     const machineMap = useMemo(
         () => new Map(props.machines.map(machine => [machine.id, machine])),
         [props.machines]
@@ -519,6 +520,14 @@ export function SessionList(props: {
 
     const directoryCount = groups.reduce((count, group) => count + group.directoryGroups.length, 0)
     const [syncingMachineId, setSyncingMachineId] = useState<string | null>(null)
+
+    const handleNewSession = (machineId: string, path?: string | null) => {
+        const search: Record<string, string> = { machineId }
+        if (path && path !== 'Other') {
+            search.path = path
+        }
+        navigate({ to: '/sessions/new', search })
+    }
 
     const handleMachineSync = async (machine: MachineGroup) => {
         if (!api) return
@@ -590,39 +599,63 @@ export function SessionList(props: {
                                     </span>
                                 ) : null}
                             </div>
-                            <button
-                                type="button"
-                                onClick={() => handleMachineSync(machineGroup)}
-                                disabled={!machineGroup.online || syncingMachineId === machineGroup.machineId}
-                                className={`rounded-full border px-2 py-1 text-[10px] font-semibold transition-colors ${machineGroup.online ? 'border-[var(--app-border)] text-[var(--app-link)] hover:bg-[var(--app-secondary-bg)]' : 'border-[var(--app-divider)] text-[var(--app-hint)]'}`}
-                                title={machineGroup.online ? t('session.machine.sync') : t('session.machine.sync.offline.body')}
-                            >
-                                {syncingMachineId === machineGroup.machineId ? t('session.machine.syncing') : t('session.machine.sync')}
-                            </button>
+                            <div className="flex items-center gap-2">
+                                {machineGroup.machineId !== 'unknown' ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => handleNewSession(machineGroup.machineId)}
+                                        className="rounded-full border px-2 py-1 text-[10px] font-semibold text-[var(--app-link)] transition-colors border-[var(--app-border)] hover:bg-[var(--app-secondary-bg)]"
+                                        title={t('sessions.new')}
+                                    >
+                                        <PlusIcon className="h-3.5 w-3.5" />
+                                    </button>
+                                ) : null}
+                                <button
+                                    type="button"
+                                    onClick={() => handleMachineSync(machineGroup)}
+                                    disabled={!machineGroup.online || syncingMachineId === machineGroup.machineId}
+                                    className={`rounded-full border px-2 py-1 text-[10px] font-semibold transition-colors ${machineGroup.online ? 'border-[var(--app-border)] text-[var(--app-link)] hover:bg-[var(--app-secondary-bg)]' : 'border-[var(--app-divider)] text-[var(--app-hint)]'}`}
+                                    title={machineGroup.online ? t('session.machine.sync') : t('session.machine.sync.offline.body')}
+                                >
+                                    {syncingMachineId === machineGroup.machineId ? t('session.machine.syncing') : t('session.machine.sync')}
+                                </button>
+                            </div>
                         </div>
 
                         {machineGroup.directoryGroups.map((group) => {
                             const isCollapsed = isGroupCollapsed(machineGroup.machineId, group)
                             return (
                                 <div key={`${machineGroup.machineId}:${group.directory}`}>
-                                    <button
-                                        type="button"
-                                        onClick={() => toggleGroup(machineGroup.machineId, group.directory, isCollapsed)}
-                                        className="sticky top-0 z-10 flex w-full items-center gap-2 px-3 py-2 text-left bg-[var(--app-bg)] border-b border-[var(--app-divider)] transition-colors hover:bg-[var(--app-secondary-bg)]"
-                                    >
-                                        <ChevronIcon
-                                            className="h-4 w-4 text-[var(--app-hint)]"
-                                            collapsed={isCollapsed}
-                                        />
-                                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                                            <span className="font-medium text-base break-words" title={group.directory}>
-                                                {group.displayName}
-                                            </span>
-                                            <span className="shrink-0 text-xs text-[var(--app-hint)]">
-                                                ({group.sessions.length})
-                                            </span>
-                                        </div>
-                                    </button>
+                                    <div className="sticky top-0 z-10 flex w-full items-center gap-2 px-3 py-2 bg-[var(--app-bg)] border-b border-[var(--app-divider)]">
+                                        <button
+                                            type="button"
+                                            onClick={() => toggleGroup(machineGroup.machineId, group.directory, isCollapsed)}
+                                            className="flex min-w-0 flex-1 items-center gap-2 text-left transition-colors hover:bg-[var(--app-secondary-bg)]"
+                                        >
+                                            <ChevronIcon
+                                                className="h-4 w-4 text-[var(--app-hint)]"
+                                                collapsed={isCollapsed}
+                                            />
+                                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                <span className="font-medium text-base break-words" title={group.directory}>
+                                                    {group.displayName}
+                                                </span>
+                                                <span className="shrink-0 text-xs text-[var(--app-hint)]">
+                                                    ({group.sessions.length})
+                                                </span>
+                                            </div>
+                                        </button>
+                                        {machineGroup.machineId !== 'unknown' ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleNewSession(machineGroup.machineId, group.directory)}
+                                                className="shrink-0 rounded-full border px-2 py-1 text-[10px] font-semibold text-[var(--app-link)] transition-colors border-[var(--app-border)] hover:bg-[var(--app-secondary-bg)]"
+                                                title={t('sessions.new')}
+                                            >
+                                                <PlusIcon className="h-3.5 w-3.5" />
+                                            </button>
+                                        ) : null}
+                                    </div>
                                     {!isCollapsed ? (
                                         <div className="flex flex-col divide-y divide-[var(--app-divider)]">
                                             {group.sessions.map((s) => (

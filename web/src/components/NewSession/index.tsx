@@ -26,6 +26,8 @@ export function NewSession(props: {
     api: ApiClient
     machines: Machine[]
     isLoading?: boolean
+    initialMachineId?: string | null
+    initialDirectory?: string | null
     onSuccess: (sessionId: string) => void
     onCancel: () => void
 }) {
@@ -68,6 +70,21 @@ export function NewSession(props: {
         if (props.machines.length === 0) return
         if (machineId && props.machines.find((m) => m.id === machineId)) return
 
+        if (props.initialMachineId) {
+            const initial = props.machines.find((m) => m.id === props.initialMachineId)
+            if (initial) {
+                setMachineId(initial.id)
+                const initialPath = props.initialDirectory?.trim()
+                if (initialPath) {
+                    setDirectory(initialPath)
+                } else {
+                    const paths = getRecentPaths(initial.id)
+                    if (paths[0]) setDirectory(paths[0])
+                }
+                return
+            }
+        }
+
         const lastUsed = getLastUsedMachineId()
         const foundLast = lastUsed ? props.machines.find((m) => m.id === lastUsed) : null
 
@@ -78,7 +95,14 @@ export function NewSession(props: {
         } else if (props.machines[0]) {
             setMachineId(props.machines[0].id)
         }
-    }, [props.machines, machineId, getLastUsedMachineId, getRecentPaths])
+    }, [
+        props.machines,
+        props.initialMachineId,
+        props.initialDirectory,
+        machineId,
+        getLastUsedMachineId,
+        getRecentPaths
+    ])
 
     useEffect(() => {
         if (!machineId) {

@@ -10,6 +10,7 @@ import {
     useMatchRoute,
     useNavigate,
     useParams,
+    useSearch,
 } from '@tanstack/react-router'
 import { App } from '@/App'
 import { SessionChat } from '@/components/SessionChat'
@@ -504,6 +505,7 @@ function NewSessionPage() {
     const goBack = useAppGoBack()
     const queryClient = useQueryClient()
     const { machines, isLoading: machinesLoading, error: machinesError } = useMachines(api, true)
+    const search = useSearch({ from: '/sessions/new' })
 
     const handleCancel = useCallback(() => {
         navigate({ to: '/sessions' })
@@ -547,6 +549,8 @@ function NewSessionPage() {
                 api={api}
                 machines={machines}
                 isLoading={machinesLoading}
+                initialMachineId={search.machineId ?? null}
+                initialDirectory={search.path ?? null}
                 onCancel={handleCancel}
                 onSuccess={handleSuccess}
             />
@@ -675,6 +679,14 @@ const sessionCommitRoute = createRoute({
 const newSessionRoute = createRoute({
     getParentRoute: () => sessionsRoute,
     path: 'new',
+    validateSearch: (search: Record<string, unknown>): { machineId?: string; path?: string } => {
+        const machineId = typeof search.machineId === 'string' ? search.machineId : undefined
+        const path = typeof search.path === 'string' ? search.path : undefined
+        const result: { machineId?: string; path?: string } = {}
+        if (machineId) result.machineId = machineId
+        if (path) result.path = path
+        return result
+    },
     component: NewSessionPage,
 })
 
