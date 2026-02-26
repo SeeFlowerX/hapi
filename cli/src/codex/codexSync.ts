@@ -17,6 +17,8 @@ import { normalizeTokenUsage } from './utils/normalizeTokenUsage'
 const CODEX_SYNC_STATE_VERSION = 1
 const MESSAGE_BATCH_SIZE = 200
 const MESSAGE_BATCH_DELAY_MS = 50
+const MESSAGE_FLUSH_SIZE = 100
+const MESSAGE_FLUSH_TIMEOUT_MS = 10_000
 
 export type CodexSyncParams = {
     mode: 'full' | 'session'
@@ -403,6 +405,9 @@ function needsMetadataUpdate(existing: Metadata | null, desired: Metadata): bool
 async function sendCodexEvents(client: ApiSessionClient, entries: CodexSessionFileEntry[], sessionId: string): Promise<void> {
     let counter = 0
     let preferResponseItems = false
+    if (entries.length > 0) {
+        await client.flush({ timeoutMs: MESSAGE_FLUSH_TIMEOUT_MS })
+    }
     for (const entry of entries) {
         if (!preferResponseItems) {
             const raw = entry.event as Record<string, unknown> | null
@@ -462,9 +467,15 @@ async function sendCodexEvents(client: ApiSessionClient, entries: CodexSessionFi
             }, localId)
         }
         counter += 1
+        if (counter % MESSAGE_FLUSH_SIZE === 0) {
+            await client.flush({ timeoutMs: MESSAGE_FLUSH_TIMEOUT_MS })
+        }
         if (counter % MESSAGE_BATCH_SIZE === 0) {
             await shortSleep(MESSAGE_BATCH_DELAY_MS)
         }
+    }
+    if (counter % MESSAGE_FLUSH_SIZE !== 0) {
+        await client.flush({ timeoutMs: MESSAGE_FLUSH_TIMEOUT_MS })
     }
 }
 
