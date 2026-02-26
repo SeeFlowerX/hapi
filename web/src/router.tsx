@@ -265,32 +265,12 @@ function SessionsPage() {
                     />
                 ) : null}
                 <div className="bg-[var(--app-bg)] pt-[env(safe-area-inset-top)]">
-                    <div className="mx-auto w-full max-w-content flex flex-col gap-2 px-3 py-2">
-                        <div className="flex items-center justify-between">
-                            <div className="text-xs text-[var(--app-hint)]">
+                    <div className="mx-auto w-full max-w-content flex flex-col px-3 py-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <div className="text-xs text-[var(--app-hint)] shrink-0">
                                 {t('sessions.count', { n: sessions.length, m: projectCount })}
                             </div>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => navigate({ to: '/settings' })}
-                                    className="p-1.5 rounded-full text-[var(--app-hint)] hover:text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] transition-colors"
-                                    title={t('settings.title')}
-                                >
-                                    <SettingsIcon className="h-5 w-5" />
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => navigate({ to: '/sessions/new' })}
-                                    className="session-list-new-button p-1.5 rounded-full text-[var(--app-link)] transition-colors"
-                                    title={t('sessions.new')}
-                                >
-                                    <PlusIcon className="h-5 w-5" />
-                                </button>
-                            </div>
-                        </div>
-                        <div className="flex items-center">
-                            <div className="relative w-full">
+                            <div className="relative flex-1 min-w-[140px]">
                                 <input
                                     value={filterText}
                                     onChange={(event) => setFilterText(event.target.value)}
@@ -307,6 +287,24 @@ function SessionsPage() {
                                         ✕
                                     </button>
                                 ) : null}
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                                <button
+                                    type="button"
+                                    onClick={() => navigate({ to: '/settings' })}
+                                    className="p-1.5 rounded-full text-[var(--app-hint)] hover:text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] transition-colors"
+                                    title={t('settings.title')}
+                                >
+                                    <SettingsIcon className="h-5 w-5" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => navigate({ to: '/sessions/new' })}
+                                    className="session-list-new-button p-1.5 rounded-full text-[var(--app-link)] transition-colors"
+                                    title={t('sessions.new')}
+                                >
+                                    <PlusIcon className="h-5 w-5" />
+                                </button>
                             </div>
                         </div>
                     </div>
