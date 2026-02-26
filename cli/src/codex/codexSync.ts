@@ -12,6 +12,7 @@ import { buildMachineMetadata } from '@/agent/sessionFactory'
 import { AsyncLock } from '@/utils/lock'
 import { isWindows } from '@/utils/process'
 import { convertCodexEvent, type CodexSessionEvent } from './utils/codexEventConverter'
+import { normalizeTokenUsage } from './utils/normalizeTokenUsage'
 
 const CODEX_SYNC_STATE_VERSION = 1
 const MESSAGE_BATCH_SIZE = 200
@@ -399,6 +400,16 @@ async function sendCodexEvents(client: ApiSessionClient, entries: CodexSessionFi
             }, localId)
         }
         if (converted.message) {
+            if (converted.message.type === 'token_count') {
+                const usage = normalizeTokenUsage(converted.message.info)
+                if (usage) {
+                    await client.updateAgentState((currentState) => ({
+                        ...currentState,
+                        tokenUsage: usage
+                    }))
+                }
+                continue
+            }
             client.sendMessageContent({
                 role: 'agent',
                 content: {

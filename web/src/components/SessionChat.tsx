@@ -378,6 +378,7 @@ export function SessionChat(props: {
             <SessionHeader
                 session={props.session}
                 codexModelLabel={isCodex ? getCodexModelLabel(codexModel) : null}
+                latestUsage={reduced.latestUsage}
                 onBack={props.onBack}
                 onViewFiles={props.session.metadata?.path ? handleViewFiles : undefined}
                 api={props.api}

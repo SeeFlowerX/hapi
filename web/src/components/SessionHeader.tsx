@@ -22,6 +22,7 @@ import { isKnownFlavor } from '@/lib/agentFlavorUtils'
 import { fetchLatestMessages, seedMessageWindowFromSession } from '@/lib/message-window-store'
 import { getMachineLabel } from '@/lib/machineLabel'
 import { ReadOnlyBadge } from '@/components/ReadOnlyBadge'
+import type { LatestUsage } from '@/chat/reducer'
 
 function getSessionTitle(session: Session): string {
     if (session.metadata?.name) {
@@ -74,9 +75,31 @@ function MoreVerticalIcon(props: { className?: string }) {
     )
 }
 
+function StatusIcon(props: { className?: string }) {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={props.className}
+        >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="10" x2="12" y2="16" />
+            <line x1="12" y1="7" x2="12" y2="7" />
+        </svg>
+    )
+}
+
 export function SessionHeader(props: {
     session: Session
     codexModelLabel?: string | null
+    latestUsage?: LatestUsage | null
     onBack: () => void
     onViewFiles?: () => void
     api: ApiClient | null
@@ -132,6 +155,7 @@ export function SessionHeader(props: {
     const [archiveOpen, setArchiveOpen] = useState(false)
     const [deleteOpen, setDeleteOpen] = useState(false)
     const [activatePending, setActivatePending] = useState(false)
+    const [statusOpen, setStatusOpen] = useState(false)
 
     const { archiveSession, renameSession, deleteSession, isPending } = useSessionActions(
         api,
@@ -282,6 +306,43 @@ export function SessionHeader(props: {
         if (!isGitRepo || gitFailed) return 'not-git'
         return 'ready'
     })()
+
+    const runtimeModeLabel = useMemo(() => {
+        const controlled = session.agentState?.controlledByUser
+        if (controlled === true) return t('session.status.mode.local')
+        if (controlled === false) return t('session.status.mode.remote')
+        return '-'
+    }, [session.agentState?.controlledByUser, t])
+
+    const activeLabel = session.active ? t('session.status.active.yes') : t('session.status.active.no')
+    const thinkingLabel = session.thinking ? t('session.status.thinking.yes') : t('session.status.thinking.no')
+    const usageFromAgent = useMemo<LatestUsage | null>(() => {
+        const tokenUsage = session.agentState?.tokenUsage
+        if (!tokenUsage) {
+            return null
+        }
+        const inputTokens = tokenUsage.inputTokens ?? null
+        const outputTokens = tokenUsage.outputTokens ?? null
+        const totalTokens = tokenUsage.totalTokens ?? null
+        if (inputTokens === null && outputTokens === null && totalTokens === null) {
+            return null
+        }
+        const resolvedInput = inputTokens ?? totalTokens ?? 0
+        const resolvedOutput = outputTokens ?? 0
+        const cacheCreation = tokenUsage.cacheCreationInputTokens ?? 0
+        const cacheRead = tokenUsage.cacheReadInputTokens ?? 0
+        return {
+            inputTokens: resolvedInput,
+            outputTokens: resolvedOutput,
+            cacheCreation,
+            cacheRead,
+            contextSize: resolvedInput + cacheCreation + cacheRead,
+            timestamp: tokenUsage.updatedAt ?? Date.now()
+        }
+    }, [session.agentState?.tokenUsage])
+
+    const usage = props.latestUsage ?? usageFromAgent
+    const usageTimestamp = usage?.timestamp ? new Date(usage.timestamp).toLocaleString() : '-'
 
     const handleWorktreeClick = () => {
         if (worktreeStatus === 'ready') {
@@ -476,6 +537,15 @@ export function SessionHeader(props: {
 
                     <button
                         type="button"
+                        onClick={() => setStatusOpen(true)}
+                        className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]"
+                        title={t('session.status.title')}
+                    >
+                        <StatusIcon className="h-4 w-4" />
+                    </button>
+
+                    <button
+                        type="button"
                         onClick={handleMenuToggle}
                         onPointerDown={(e) => e.stopPropagation()}
                         ref={menuAnchorRef}
@@ -576,6 +646,98 @@ export function SessionHeader(props: {
                             </Button>
                         </div>
                     </form>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={statusOpen} onOpenChange={(open) => setStatusOpen(open)}>
+                <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>{t('session.status.title')}</DialogTitle>
+                    </DialogHeader>
+                    <div className="mt-3 space-y-4 text-sm text-[var(--app-fg)]">
+                        <div>
+                            <div className="mb-2 text-xs font-semibold uppercase text-[var(--app-hint)]">
+                                {t('session.status.section.session')}
+                            </div>
+                            <div className="grid grid-cols-[140px_1fr] gap-x-3 gap-y-2 text-sm">
+                                <div className="text-[var(--app-hint)]">{t('session.status.sessionId')}</div>
+                                <div className="break-all">{session.id}</div>
+                                {session.metadata?.codexSessionId ? (
+                                    <>
+                                        <div className="text-[var(--app-hint)]">{t('session.status.codexSessionId')}</div>
+                                        <div className="break-all">{session.metadata.codexSessionId}</div>
+                                    </>
+                                ) : null}
+                                <div className="text-[var(--app-hint)]">{t('session.status.machine')}</div>
+                                <div className="break-all">{machineLabel ?? '-'}</div>
+                                <div className="text-[var(--app-hint)]">{t('session.status.machineId')}</div>
+                                <div className="break-all">{session.metadata?.machineId ?? '-'}</div>
+                                <div className="text-[var(--app-hint)]">{t('session.status.path')}</div>
+                                <div className="break-all">{session.metadata?.path ?? '-'}</div>
+                                <div className="text-[var(--app-hint)]">{t('session.status.flavor')}</div>
+                                <div>{session.metadata?.flavor?.trim() || '-'}</div>
+                                <div className="text-[var(--app-hint)]">{t('session.status.model')}</div>
+                                <div>{props.codexModelLabel || session.modelMode || '-'}</div>
+                                <div className="text-[var(--app-hint)]">{t('session.status.permissionMode')}</div>
+                                <div>{session.permissionMode || '-'}</div>
+                                {session.metadata?.readOnly ? (
+                                    <>
+                                        <div className="text-[var(--app-hint)]">{t('session.status.readOnly')}</div>
+                                        <div>
+                                            {t('session.readOnly.badge')}
+                                            {session.metadata?.readOnlyReason ? ` (${session.metadata.readOnlyReason})` : ''}
+                                        </div>
+                                    </>
+                                ) : null}
+                            </div>
+                        </div>
+
+                        <div>
+                            <div className="mb-2 text-xs font-semibold uppercase text-[var(--app-hint)]">
+                                {t('session.status.section.runtime')}
+                            </div>
+                            <div className="grid grid-cols-[140px_1fr] gap-x-3 gap-y-2 text-sm">
+                                <div className="text-[var(--app-hint)]">{t('session.status.mode')}</div>
+                                <div>{runtimeModeLabel}</div>
+                                <div className="text-[var(--app-hint)]">{t('session.status.active')}</div>
+                                <div>{activeLabel}</div>
+                                <div className="text-[var(--app-hint)]">{t('session.status.thinking')}</div>
+                                <div>{thinkingLabel}</div>
+                                {session.metadata?.lifecycleState ? (
+                                    <>
+                                        <div className="text-[var(--app-hint)]">{t('session.status.lifecycle')}</div>
+                                        <div>{session.metadata.lifecycleState}</div>
+                                    </>
+                                ) : null}
+                            </div>
+                        </div>
+
+                        <div>
+                            <div className="mb-2 text-xs font-semibold uppercase text-[var(--app-hint)]">
+                                {t('session.status.section.usage')}
+                            </div>
+                            {usage ? (
+                                <div className="grid grid-cols-[140px_1fr] gap-x-3 gap-y-2 text-sm">
+                                    <div className="text-[var(--app-hint)]">{t('session.status.usage.context')}</div>
+                                    <div>{usage.contextSize}</div>
+                                    <div className="text-[var(--app-hint)]">{t('session.status.usage.input')}</div>
+                                    <div>{usage.inputTokens}</div>
+                                    <div className="text-[var(--app-hint)]">{t('session.status.usage.output')}</div>
+                                    <div>{usage.outputTokens}</div>
+                                    <div className="text-[var(--app-hint)]">{t('session.status.usage.cacheCreate')}</div>
+                                    <div>{usage.cacheCreation}</div>
+                                    <div className="text-[var(--app-hint)]">{t('session.status.usage.cacheRead')}</div>
+                                    <div>{usage.cacheRead}</div>
+                                    <div className="text-[var(--app-hint)]">{t('session.status.usage.updatedAt')}</div>
+                                    <div>{usageTimestamp}</div>
+                                </div>
+                            ) : (
+                                <div className="text-xs text-[var(--app-hint)]">
+                                    {t('session.status.usage.empty')}
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </DialogContent>
             </Dialog>
         </>

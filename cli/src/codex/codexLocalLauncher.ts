@@ -4,6 +4,7 @@ import { CodexSession } from './session';
 import { createCodexSessionScanner } from './utils/codexSessionScanner';
 import { convertCodexEvent } from './utils/codexEventConverter';
 import { buildHapiMcpBridge } from './utils/buildHapiMcpBridge';
+import { normalizeTokenUsage } from './utils/normalizeTokenUsage';
 import { BaseLocalLauncher } from '@/modules/common/launcher/BaseLocalLauncher';
 
 export async function codexLocalLauncher(session: CodexSession): Promise<'switch' | 'exit'> {
@@ -70,6 +71,16 @@ export async function codexLocalLauncher(session: CodexSession): Promise<'switch
                 session.sendUserMessage(converted.userMessage);
             }
             if (converted?.message) {
+                if (converted.message.type === 'token_count') {
+                    const usage = normalizeTokenUsage(converted.message.info);
+                    if (usage) {
+                        session.client.updateAgentState((currentState) => ({
+                            ...currentState,
+                            tokenUsage: usage
+                        }));
+                    }
+                    return;
+                }
                 session.sendCodexMessage(converted.message);
             }
         }

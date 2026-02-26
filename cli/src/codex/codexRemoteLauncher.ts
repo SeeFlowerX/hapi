@@ -19,6 +19,7 @@ import { AppServerEventConverter } from './utils/appServerEventConverter';
 import { registerAppServerPermissionHandlers } from './utils/appServerPermissionAdapter';
 import { buildThreadStartParams, buildTurnStartParams } from './utils/appServerConfig';
 import { shouldIgnoreTerminalEvent } from './utils/terminalEventGuard';
+import { normalizeTokenUsage } from './utils/normalizeTokenUsage';
 import {
     RemoteLauncherBase,
     type RemoteLauncherDisplayContext,
@@ -418,10 +419,13 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
                 }
             }
             if (msgType === 'token_count') {
-                session.sendCodexMessage({
-                    ...msg,
-                    id: randomUUID()
-                });
+                const usage = normalizeTokenUsage(asRecord(msg.info) ?? msg);
+                if (usage) {
+                    session.client.updateAgentState((currentState) => ({
+                        ...currentState,
+                        tokenUsage: usage
+                    }));
+                }
             }
             if (msgType === 'patch_apply_begin') {
                 const callId = asString(msg.call_id ?? msg.callId);
