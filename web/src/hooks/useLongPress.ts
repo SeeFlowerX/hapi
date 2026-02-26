@@ -5,6 +5,7 @@ type UseLongPressOptions = {
     onLongPress: (point: { x: number; y: number }) => void
     onClick?: () => void
     threshold?: number
+    moveThreshold?: number
     disabled?: boolean
 }
 
@@ -20,7 +21,7 @@ type UseLongPressHandlers = {
 }
 
 export function useLongPress(options: UseLongPressOptions): UseLongPressHandlers {
-    const { onLongPress, onClick, threshold = 500, disabled = false } = options
+    const { onLongPress, onClick, threshold = 500, moveThreshold = 8, disabled = false } = options
 
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const isLongPressRef = useRef(false)
@@ -84,10 +85,17 @@ export function useLongPress(options: UseLongPressOptions): UseLongPressHandlers
         handleEnd(!isLongPressRef.current)
     }, [handleEnd])
 
-    const onTouchMove = useCallback<React.TouchEventHandler>(() => {
+    const onTouchMove = useCallback<React.TouchEventHandler>((e) => {
+        const touch = e.touches[0]
+        if (!touch) return
+        const dx = touch.clientX - pressPointRef.current.x
+        const dy = touch.clientY - pressPointRef.current.y
+        if (Math.hypot(dx, dy) <= moveThreshold) {
+            return
+        }
         touchMoved.current = true
         clearTimer()
-    }, [clearTimer])
+    }, [clearTimer, moveThreshold])
 
     const onContextMenu = useCallback<React.MouseEventHandler>((e) => {
         if (!disabled) {
