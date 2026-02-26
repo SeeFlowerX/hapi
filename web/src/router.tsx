@@ -261,7 +261,7 @@ function SessionsPage() {
                         aria-orientation="vertical"
                         aria-label={t('sessions.resize')}
                         onPointerDown={handleResizeStart}
-                        className="absolute right-0 top-0 h-full w-3 cursor-col-resize bg-transparent hover:bg-[var(--app-divider)]"
+                        className="absolute right-0 top-0 z-30 h-full w-3 cursor-col-resize bg-transparent hover:bg-[var(--app-divider)]"
                     />
                 ) : null}
                 <div className="bg-[var(--app-bg)] pt-[env(safe-area-inset-top)]">
