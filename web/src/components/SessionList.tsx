@@ -489,6 +489,10 @@ export function SessionList(props: {
     renderHeader?: boolean
     api: ApiClient | null
     selectedSessionId?: string | null
+    filterText?: string
+    onFilterTextChange?: (value: string) => void
+    filterOpen?: boolean
+    onFilterOpenChange?: (open: boolean) => void
 }) {
     const { t } = useTranslation()
     const { renderHeader = true, api, selectedSessionId } = props
@@ -502,8 +506,24 @@ export function SessionList(props: {
         () => groupSessionsByMachine(props.sessions, machineMap),
         [props.sessions, machineMap]
     )
-    const [filterOpen, setFilterOpen] = useState(false)
-    const [filterText, setFilterText] = useState('')
+    const [internalFilterOpen, setInternalFilterOpen] = useState(false)
+    const [internalFilterText, setInternalFilterText] = useState('')
+    const filterOpen = props.filterOpen ?? internalFilterOpen
+    const filterText = props.filterText ?? internalFilterText
+    const setFilterOpen = (open: boolean) => {
+        if (props.onFilterOpenChange) {
+            props.onFilterOpenChange(open)
+            return
+        }
+        setInternalFilterOpen(open)
+    }
+    const setFilterText = (value: string) => {
+        if (props.onFilterTextChange) {
+            props.onFilterTextChange(value)
+            return
+        }
+        setInternalFilterText(value)
+    }
     const normalizedFilter = filterText.trim().toLowerCase()
     const filteredGroups = useMemo(() => {
         if (!normalizedFilter) return groups
