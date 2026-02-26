@@ -290,8 +290,8 @@ export function HappyComposer(props: {
             return
         }
 
-        // Shift+Enter sends the message (works on all platforms including iPadOS with keyboard)
-        if (key === 'Enter' && e.shiftKey) {
+        // Shift+Enter sends only on touch devices (e.g. iPadOS keyboard)
+        if (key === 'Enter' && e.shiftKey && isTouch) {
             e.preventDefault()
             if (!canSend) return
             api.composer().send()
@@ -351,7 +351,8 @@ export function HappyComposer(props: {
         permissionModes,
         canSend,
         api,
-        haptic
+        haptic,
+        isTouch
     ])
 
     useEffect(() => {
