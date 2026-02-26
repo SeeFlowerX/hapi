@@ -402,7 +402,30 @@ function needsMetadataUpdate(existing: Metadata | null, desired: Metadata): bool
 
 async function sendCodexEvents(client: ApiSessionClient, entries: CodexSessionFileEntry[], sessionId: string): Promise<void> {
     let counter = 0
+    let preferResponseItems = false
     for (const entry of entries) {
+        if (!preferResponseItems) {
+            const raw = entry.event as Record<string, unknown> | null
+            if (raw && typeof raw === 'object' && raw.type === 'response_item') {
+                const payload = raw.payload as Record<string, unknown> | null
+                const itemType = typeof payload?.type === 'string' ? payload.type : null
+                if (itemType === 'message' || itemType === 'reasoning') {
+                    preferResponseItems = true
+                }
+            }
+        }
+
+        if (preferResponseItems) {
+            const raw = entry.event as Record<string, unknown> | null
+            if (raw && typeof raw === 'object' && raw.type === 'event_msg') {
+                const payload = raw.payload as Record<string, unknown> | null
+                const eventType = typeof payload?.type === 'string' ? payload.type : null
+                if (eventType === 'user_message' || eventType === 'agent_message' || eventType === 'agent_reasoning' || eventType === 'agent_reasoning_delta') {
+                    continue
+                }
+            }
+        }
+
         const converted = convertCodexEvent(entry.event)
         if (!converted) {
             continue

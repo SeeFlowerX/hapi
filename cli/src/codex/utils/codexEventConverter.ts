@@ -72,6 +72,48 @@ function parseArguments(value: unknown): unknown {
     return value;
 }
 
+function extractTextFromContent(value: unknown): string | null {
+    if (typeof value === 'string' && value.length > 0) {
+        return value;
+    }
+
+    if (!Array.isArray(value)) {
+        return null;
+    }
+
+    const chunks: string[] = [];
+    for (const entry of value) {
+        const record = asRecord(entry);
+        if (!record) continue;
+        const text = asString(record.text ?? record.message ?? record.content);
+        if (text) {
+            chunks.push(text);
+        }
+    }
+
+    if (chunks.length === 0) {
+        return null;
+    }
+
+    return chunks.join('');
+}
+
+function extractSummaryText(value: unknown): string | null {
+    if (!Array.isArray(value)) {
+        return null;
+    }
+    const chunks: string[] = [];
+    for (const entry of value) {
+        const record = asRecord(entry);
+        if (!record) continue;
+        const text = asString(record.text ?? record.message ?? record.content);
+        if (text) {
+            chunks.push(text);
+        }
+    }
+    return chunks.length > 0 ? chunks.join('\n') : null;
+}
+
 function extractCallId(payload: Record<string, unknown>): string | null {
     const candidates = [
         'call_id',
@@ -192,6 +234,42 @@ export function convertCodexEvent(rawEvent: unknown): CodexConversionResult | nu
         const itemType = asString(payloadRecord.type);
         if (!itemType) {
             return null;
+        }
+
+        if (itemType === 'message') {
+            const role = asString(payloadRecord.role);
+            const text = extractTextFromContent(payloadRecord.content);
+            if (!text) {
+                return null;
+            }
+            if (role === 'user') {
+                return { userMessage: text };
+            }
+            if (role === 'assistant') {
+                return {
+                    message: {
+                        type: 'message',
+                        message: text,
+                        id: randomUUID()
+                    }
+                };
+            }
+            return null;
+        }
+
+        if (itemType === 'reasoning') {
+            const summaryText = extractSummaryText(payloadRecord.summary);
+            const text = summaryText ?? extractTextFromContent(payloadRecord.content);
+            if (!text) {
+                return null;
+            }
+            return {
+                message: {
+                    type: 'reasoning',
+                    message: text,
+                    id: randomUUID()
+                }
+            };
         }
 
         if (itemType === 'function_call') {
