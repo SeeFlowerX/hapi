@@ -502,6 +502,46 @@ export class AppServerEventConverter {
 
                 return events;
             }
+
+            if (itemType === 'mcptoolcall') {
+                const server = asString(item.server ?? item.serverName ?? item.server_name);
+                const tool = asString(item.tool ?? item.toolName ?? item.tool_name);
+                const argumentsValue = item.arguments ?? item.args ?? item.input ?? item.params;
+
+                if (method === 'item/started') {
+                    const invocation: Record<string, unknown> = {};
+                    if (server) invocation.server = server;
+                    if (tool) invocation.tool = tool;
+                    if (argumentsValue !== undefined) invocation.arguments = argumentsValue;
+
+                    events.push({
+                        type: 'mcp_tool_call_begin',
+                        call_id: itemId,
+                        invocation
+                    });
+                }
+
+                if (method === 'item/completed') {
+                    const rawResult = item.result ?? item.output ?? item.response ?? item.value ?? item.return ?? item.data;
+                    const error = asString(item.error ?? item.err ?? item.message);
+                    const status = asString(item.status);
+                    let result = rawResult;
+                    if (result === undefined && error) {
+                        result = { Err: error };
+                    }
+                    if (result === undefined && status && /fail|error|cancel|abort/i.test(status)) {
+                        result = { Err: status };
+                    }
+
+                    events.push({
+                        type: 'mcp_tool_call_end',
+                        call_id: itemId,
+                        result
+                    });
+                }
+
+                return events;
+            }
         }
 
         logger.debug('[AppServerEventConverter] Unhandled notification', { method, params });

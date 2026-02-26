@@ -136,6 +136,42 @@ describe('AppServerEventConverter', () => {
         expect(events).toEqual([{ type: 'turn_diff', unified_diff: 'diff --git a b' }]);
     });
 
+    it('maps mcp tool call items', () => {
+        const converter = new AppServerEventConverter();
+
+        const started = converter.handleNotification('item/started', {
+            item: {
+                id: 'call-1',
+                type: 'mcpToolCall',
+                server: 'hapi',
+                tool: 'change_title',
+                arguments: { title: 'Hello' }
+            }
+        });
+        expect(started).toEqual([{
+            type: 'mcp_tool_call_begin',
+            call_id: 'call-1',
+            invocation: {
+                server: 'hapi',
+                tool: 'change_title',
+                arguments: { title: 'Hello' }
+            }
+        }]);
+
+        const completed = converter.handleNotification('item/completed', {
+            item: {
+                id: 'call-1',
+                type: 'mcpToolCall',
+                result: { Ok: { success: true } }
+            }
+        });
+        expect(completed).toEqual([{
+            type: 'mcp_tool_call_end',
+            call_id: 'call-1',
+            result: { Ok: { success: true } }
+        }]);
+    });
+
     it('unwraps codex/event task lifecycle', () => {
         const converter = new AppServerEventConverter();
 
