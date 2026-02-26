@@ -147,7 +147,7 @@ export function StatusBar(props: {
         if (usagePercent === null) return 'bg-[var(--app-divider)]'
         if (usagePercent >= 90) return 'bg-red-500'
         if (usagePercent >= 80) return 'bg-amber-500'
-        return 'bg-[var(--app-link)]'
+        return 'bg-green-500'
     }, [usagePercent])
 
     return (
