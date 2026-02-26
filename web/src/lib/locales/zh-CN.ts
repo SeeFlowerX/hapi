@@ -42,6 +42,9 @@ export default {
   'sessions.count': '{n} 个会话，{m} 个项目',
   'sessions.new': '新建会话',
   'sessions.resize': '调整会话列表宽度',
+  'sessions.filter.button': '筛选',
+  'sessions.filter.placeholder': '按路径筛选',
+  'sessions.filter.clear': '清除',
 
   // Session list
   'session.item.path': '路径',

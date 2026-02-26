@@ -73,10 +73,9 @@ function groupSessionsByDirectory(sessions: SessionSummary[]): SessionGroup[] {
             return { directory, displayName, sessions: sortedSessions, latestUpdatedAt, hasActiveSession }
         })
         .sort((a, b) => {
-            if (a.hasActiveSession !== b.hasActiveSession) {
-                return a.hasActiveSession ? -1 : 1
-            }
-            return b.latestUpdatedAt - a.latestUpdatedAt
+            if (a.directory === 'Other' && b.directory !== 'Other') return 1
+            if (a.directory !== 'Other' && b.directory === 'Other') return -1
+            return a.directory.localeCompare(b.directory)
         })
 }
 
@@ -118,10 +117,13 @@ function groupSessionsByMachine(sessions: SessionSummary[], machines: Map<string
             }
         })
         .sort((a, b) => {
-            if (a.hasActiveSession !== b.hasActiveSession) {
-                return a.hasActiveSession ? -1 : 1
-            }
-            return b.latestUpdatedAt - a.latestUpdatedAt
+            const aUnknown = a.machineId === 'unknown'
+            const bUnknown = b.machineId === 'unknown'
+            if (aUnknown !== bUnknown) return aUnknown ? 1 : -1
+            const labelA = a.label.toLowerCase()
+            const labelB = b.label.toLowerCase()
+            if (labelA !== labelB) return labelA.localeCompare(labelB)
+            return a.machineId.localeCompare(b.machineId)
         })
 }
 
@@ -166,6 +168,24 @@ function BulbIcon(props: { className?: string }) {
     )
 }
 
+function FilterIcon(props: { className?: string }) {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={props.className}
+        >
+            <polygon points="3 4 21 4 14 12 14 19 10 21 10 12 3 4" />
+        </svg>
+    )
+}
 function ChevronIcon(props: { className?: string; collapsed?: boolean }) {
     return (
         <svg
@@ -482,6 +502,21 @@ export function SessionList(props: {
         () => groupSessionsByMachine(props.sessions, machineMap),
         [props.sessions, machineMap]
     )
+    const [filterOpen, setFilterOpen] = useState(false)
+    const [filterText, setFilterText] = useState('')
+    const normalizedFilter = filterText.trim().toLowerCase()
+    const filteredGroups = useMemo(() => {
+        if (!normalizedFilter) return groups
+        return groups
+            .map(group => {
+                const directoryGroups = group.directoryGroups.filter(directoryGroup => {
+                    const candidate = directoryGroup.directory.toLowerCase()
+                    return candidate.includes(normalizedFilter)
+                })
+                return { ...group, directoryGroups }
+            })
+            .filter(group => group.directoryGroups.length > 0)
+    }, [groups, normalizedFilter])
     const [collapseOverrides, setCollapseOverrides] = useState<Map<string, boolean>>(
         () => new Map()
     )
@@ -518,7 +553,7 @@ export function SessionList(props: {
         })
     }, [groups])
 
-    const directoryCount = groups.reduce((count, group) => count + group.directoryGroups.length, 0)
+    const directoryCount = filteredGroups.reduce((count, group) => count + group.directoryGroups.length, 0)
     const [syncingMachineId, setSyncingMachineId] = useState<string | null>(null)
 
     const handleNewSession = (machineId: string, path?: string | null) => {
@@ -567,23 +602,58 @@ export function SessionList(props: {
     return (
         <div className="mx-auto w-full max-w-content flex flex-col">
             {renderHeader ? (
-                <div className="flex items-center justify-between px-3 py-1">
-                    <div className="text-xs text-[var(--app-hint)]">
-                        {t('sessions.count', { n: props.sessions.length, m: directoryCount })}
+                <div className="flex flex-col gap-2 px-3 py-1">
+                    <div className="flex items-center justify-between">
+                        <div className="text-xs text-[var(--app-hint)]">
+                            {t('sessions.count', { n: props.sessions.length, m: directoryCount })}
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setFilterOpen((prev) => !prev)}
+                                className={`rounded-full p-1.5 transition-colors ${
+                                    filterOpen || normalizedFilter
+                                        ? 'text-[var(--app-link)]'
+                                        : 'text-[var(--app-hint)]'
+                                } hover:bg-[var(--app-secondary-bg)]`}
+                                title={t('sessions.filter.button')}
+                            >
+                                <FilterIcon className="h-4 w-4" />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={props.onNewSession}
+                                className="session-list-new-button p-1.5 rounded-full text-[var(--app-link)] transition-colors"
+                                title={t('sessions.new')}
+                            >
+                                <PlusIcon className="h-5 w-5" />
+                            </button>
+                        </div>
                     </div>
-                    <button
-                        type="button"
-                        onClick={props.onNewSession}
-                        className="session-list-new-button p-1.5 rounded-full text-[var(--app-link)] transition-colors"
-                        title={t('sessions.new')}
-                    >
-                        <PlusIcon className="h-5 w-5" />
-                    </button>
+                    {filterOpen || normalizedFilter ? (
+                        <div className="flex items-center gap-2">
+                            <input
+                                value={filterText}
+                                onChange={(event) => setFilterText(event.target.value)}
+                                placeholder={t('sessions.filter.placeholder')}
+                                className="w-full rounded-md border border-[var(--app-border)] bg-[var(--app-secondary-bg)] px-2 py-1 text-xs text-[var(--app-fg)] placeholder:text-[var(--app-hint)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-link)]"
+                            />
+                            {normalizedFilter ? (
+                                <button
+                                    type="button"
+                                    onClick={() => setFilterText('')}
+                                    className="rounded-full px-2 py-1 text-[10px] font-semibold text-[var(--app-hint)] hover:text-[var(--app-fg)]"
+                                >
+                                    {t('sessions.filter.clear')}
+                                </button>
+                            ) : null}
+                        </div>
+                    ) : null}
                 </div>
             ) : null}
 
             <div className="flex flex-col">
-                {groups.map((machineGroup) => (
+                {filteredGroups.map((machineGroup) => (
                     <div key={machineGroup.machineId} className="border-b border-[var(--app-divider)]">
                         <div className="sticky top-0 z-20 flex w-full items-center justify-between gap-3 px-3 py-2 bg-[var(--app-bg)] border-b border-[var(--app-divider)]">
                             <div className="flex items-center gap-2 min-w-0">

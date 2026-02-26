@@ -42,6 +42,9 @@ export default {
   'sessions.count': '{n} sessions in {m} projects',
   'sessions.new': 'New Session',
   'sessions.resize': 'Resize session list',
+  'sessions.filter.button': 'Filter',
+  'sessions.filter.placeholder': 'Filter by path',
+  'sessions.filter.clear': 'Clear',
 
   // Session list
   'session.item.path': 'path',
