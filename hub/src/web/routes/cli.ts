@@ -20,6 +20,10 @@ const createOrLoadMachineSchema = z.object({
     runnerState: z.unknown().nullable().optional()
 })
 
+const listSessionsQuerySchema = z.object({
+    flavor: z.string().optional()
+})
+
 const getMessagesQuerySchema = z.object({
     afterSeq: z.coerce.number().int().min(0),
     limit: z.coerce.number().int().min(1).max(200).optional()
@@ -102,6 +106,31 @@ export function createCliRoutes(getSyncEngine: () => SyncEngine | null): Hono<Cl
         const namespace = c.get('namespace')
         const session = engine.getOrCreateSession(parsed.data.tag, parsed.data.metadata, parsed.data.agentState ?? null, namespace)
         return c.json({ session })
+    })
+
+    app.get('/sessions', (c) => {
+        const engine = getSyncEngine()
+        if (!engine) {
+            return c.json({ error: 'Not ready' }, 503)
+        }
+        const parsed = listSessionsQuerySchema.safeParse(c.req.query())
+        if (!parsed.success) {
+            return c.json({ error: 'Invalid query' }, 400)
+        }
+
+        const namespace = c.get('namespace')
+        const flavorFilter = parsed.data.flavor?.trim()
+        const sessions = engine.getSessionsByNamespace(namespace)
+            .filter((session) => {
+                if (!flavorFilter) return true
+                return session.metadata?.flavor === flavorFilter
+            })
+            .map((session) => ({
+                id: session.id,
+                metadata: session.metadata ?? null
+            }))
+
+        return c.json({ sessions })
     })
 
     app.get('/sessions/:id', (c) => {

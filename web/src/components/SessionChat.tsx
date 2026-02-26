@@ -45,6 +45,7 @@ export function SessionChat(props: {
     const { haptic } = usePlatform()
     const navigate = useNavigate()
     const sessionInactive = !props.session.active
+    const isReadOnly = Boolean(props.session.metadata?.readOnly)
     const normalizedCacheRef = useRef<Map<string, { source: DecryptedMessage; normalized: NormalizedMessage | null }>>(new Map())
     const blocksByIdRef = useRef<Map<string, ChatBlock>>(new Map())
     const [forceScrollToken, setForceScrollToken] = useState(0)
@@ -320,6 +321,13 @@ export function SessionChat(props: {
         props.onRefresh()
     }, [abortSession, props.onRefresh])
 
+    const handleAbortSafe = useCallback(async () => {
+        if (isReadOnly) {
+            return
+        }
+        await handleAbort()
+    }, [handleAbort, isReadOnly])
+
     // Switch to remote handler
     const handleSwitchToRemote = useCallback(async () => {
         await switchSession()
@@ -341,23 +349,26 @@ export function SessionChat(props: {
     }, [navigate, props.session.id])
 
     const handleSend = useCallback((text: string, attachments?: AttachmentMetadata[]) => {
+        if (isReadOnly) {
+            return
+        }
         props.onSend(text, attachments)
         setForceScrollToken((token) => token + 1)
-    }, [props.onSend])
+    }, [props.onSend, isReadOnly])
 
     const attachmentAdapter = useMemo(() => {
-        if (!props.session.active) {
+        if (!props.session.active || isReadOnly) {
             return undefined
         }
         return createAttachmentAdapter(props.api, props.session.id)
-    }, [props.api, props.session.id, props.session.active])
+    }, [props.api, props.session.id, props.session.active, isReadOnly])
 
     const runtime = useHappyRuntime({
         session: props.session,
         blocks: reconciled.blocks,
-        isSending: props.isSending,
+        isSending: props.isSending || isReadOnly,
         onSendMessage: handleSend,
-        onAbort: handleAbort,
+        onAbort: handleAbortSafe,
         attachmentAdapter,
         allowSendWhenInactive: true
     })
@@ -417,7 +428,7 @@ export function SessionChat(props: {
 
                     <HappyComposer
                         sessionId={props.session.id}
-                        disabled={props.isSending}
+                        disabled={props.isSending || isReadOnly}
                         permissionMode={props.session.permissionMode}
                         modelMode={props.session.modelMode}
                         codexModel={codexModel}
@@ -428,11 +439,11 @@ export function SessionChat(props: {
                         agentState={props.session.agentState}
                         contextSize={reduced.latestUsage?.contextSize}
                         controlledByUser={props.session.agentState?.controlledByUser === true}
-                        onPermissionModeChange={handlePermissionModeChange}
-                        onModelModeChange={handleModelModeChange}
-                        onCodexModelChange={handleCodexModelChange}
-                        onSwitchToRemote={handleSwitchToRemote}
-                        onTerminal={props.session.active ? handleViewTerminal : undefined}
+                        onPermissionModeChange={isReadOnly ? undefined : handlePermissionModeChange}
+                        onModelModeChange={isReadOnly ? undefined : handleModelModeChange}
+                        onCodexModelChange={isReadOnly ? undefined : handleCodexModelChange}
+                        onSwitchToRemote={isReadOnly ? undefined : handleSwitchToRemote}
+                        onTerminal={props.session.active && !isReadOnly ? handleViewTerminal : undefined}
                         autocompleteSuggestions={props.autocompleteSuggestions}
                         voiceStatus={voice?.status}
                         voiceMicMuted={voice?.micMuted}

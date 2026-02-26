@@ -190,6 +190,12 @@ export class ApiClient {
         return await this.request<SessionResponse>(`/api/sessions/${encodeURIComponent(sessionId)}`)
     }
 
+    async codexSyncSession(sessionId: string): Promise<void> {
+        await this.request(`/api/sessions/${encodeURIComponent(sessionId)}/codex-sync`, {
+            method: 'POST'
+        })
+    }
+
     async getMessages(sessionId: string, options: { beforeSeq?: number | null; limit?: number }): Promise<MessagesResponse> {
         const params = new URLSearchParams()
         if (options.beforeSeq !== undefined && options.beforeSeq !== null) {
@@ -202,6 +208,13 @@ export class ApiClient {
         const qs = params.toString()
         const url = `/api/sessions/${encodeURIComponent(sessionId)}/messages${qs ? `?${qs}` : ''}`
         return await this.request<MessagesResponse>(url)
+    }
+
+    async codexSyncMachine(machineId: string): Promise<void> {
+        await this.request(`/api/machines/${encodeURIComponent(machineId)}/codex-sync`, {
+            method: 'POST',
+            body: JSON.stringify({ mode: 'full' })
+        })
     }
 
     async getGitStatus(sessionId: string): Promise<GitCommandResponse> {

@@ -18,6 +18,7 @@ type SessionActionMenuProps = {
     onRename: () => void
     onArchive: () => void
     onDelete: () => void
+    deleteDisabled?: boolean
     anchorPoint: { x: number; y: number }
     menuId?: string
 }
@@ -122,6 +123,7 @@ export function SessionActionMenu(props: SessionActionMenuProps) {
         onRename,
         onArchive,
         onDelete,
+        deleteDisabled,
         anchorPoint,
         menuId
     } = props
@@ -142,6 +144,7 @@ export function SessionActionMenu(props: SessionActionMenuProps) {
     }
 
     const handleDelete = () => {
+        if (deleteDisabled) return
         onClose()
         onDelete()
     }
@@ -294,10 +297,11 @@ export function SessionActionMenu(props: SessionActionMenuProps) {
                     <button
                         type="button"
                         role="menuitem"
-                        className={`${baseItemClassName} text-red-500 hover:bg-red-500/10`}
+                        className={`${baseItemClassName} ${deleteDisabled ? 'text-[var(--app-hint)] cursor-not-allowed' : 'text-red-500 hover:bg-red-500/10'}`}
                         onClick={handleDelete}
+                        disabled={deleteDisabled}
                     >
-                        <TrashIcon className="text-red-500" />
+                        <TrashIcon className={deleteDisabled ? 'text-[var(--app-hint)]' : 'text-red-500'} />
                         {t('session.action.delete')}
                     </button>
                 )}

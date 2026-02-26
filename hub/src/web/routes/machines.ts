@@ -25,6 +25,11 @@ const createDirectorySchema = z.object({
     path: z.string().min(1)
 })
 
+const codexSyncSchema = z.object({
+    mode: z.enum(['full', 'session']).optional(),
+    codexSessionId: z.string().optional()
+})
+
 export function createMachinesRoutes(getSyncEngine: () => SyncEngine | null): Hono<WebAppEnv> {
     const app = new Hono<WebAppEnv>()
 
@@ -149,6 +154,38 @@ export function createMachinesRoutes(getSyncEngine: () => SyncEngine | null): Ho
             return c.json(result, result.success ? 200 : 400)
         } catch (error) {
             return c.json({ success: false, error: error instanceof Error ? error.message : 'Failed to create directory' }, 500)
+        }
+    })
+
+    app.post('/machines/:id/codex-sync', async (c) => {
+        const engine = getSyncEngine()
+        if (!engine) {
+            return c.json({ error: 'Not connected' }, 503)
+        }
+
+        const machineId = c.req.param('id')
+        const machine = requireMachine(c, engine, machineId)
+        if (machine instanceof Response) {
+            return machine
+        }
+
+        const body = await c.req.json().catch(() => null)
+        const parsed = codexSyncSchema.safeParse(body ?? {})
+        if (!parsed.success) {
+            return c.json({ error: 'Invalid body' }, 400)
+        }
+
+        const mode = parsed.data.mode ?? 'full'
+        if (mode !== 'full') {
+            return c.json({ error: 'Invalid sync mode' }, 400)
+        }
+
+        try {
+            await engine.codexSync(machineId, { mode: 'full' })
+            return c.json({ ok: true })
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Codex sync failed'
+            return c.json({ error: message }, 500)
         }
     })
 

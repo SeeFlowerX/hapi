@@ -6,6 +6,7 @@ import type { ApiClient } from '@/api/client'
 import { isTelegramApp } from '@/hooks/useTelegram'
 import { useSessionActions } from '@/hooks/mutations/useSessionActions'
 import { useSpawnSession } from '@/hooks/mutations/useSpawnSession'
+import { useMachines } from '@/hooks/queries/useMachines'
 import { SessionActionMenu } from '@/components/SessionActionMenu'
 import { RenameSessionDialog } from '@/components/RenameSessionDialog'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
@@ -19,6 +20,8 @@ import { PlusCircleIcon } from '@/components/icons'
 import { queryKeys } from '@/lib/query-keys'
 import { isKnownFlavor } from '@/lib/agentFlavorUtils'
 import { fetchLatestMessages, seedMessageWindowFromSession } from '@/lib/message-window-store'
+import { getMachineLabel } from '@/lib/machineLabel'
+import { ReadOnlyBadge } from '@/components/ReadOnlyBadge'
 
 function getSessionTitle(session: Session): string {
     if (session.metadata?.name) {
@@ -89,6 +92,30 @@ export function SessionHeader(props: {
     const { session, api, onSessionDeleted } = props
     const title = useMemo(() => getSessionTitle(session), [session])
     const worktreeBranch = session.metadata?.worktree?.branch
+    const isReadOnly = Boolean(session.metadata?.readOnly)
+    const { machines } = useMachines(api, true)
+    const machineLabel = useMemo(() => {
+        const machineId = session.metadata?.machineId ?? null
+        const machine = machineId ? machines.find(item => item.id === machineId) ?? null : null
+        if (!session.metadata) {
+            return null
+        }
+        return getMachineLabel({
+            machine,
+            metadata: {
+                path: session.metadata.path,
+                host: session.metadata.host,
+                os: session.metadata.os,
+                machineId: session.metadata.machineId
+            }
+        })
+    }, [
+        machines,
+        session.metadata?.machineId,
+        session.metadata?.host,
+        session.metadata?.os,
+        session.metadata?.path
+    ])
 
     const [worktreeDialogOpen, setWorktreeDialogOpen] = useState(false)
     const [worktreeName, setWorktreeName] = useState('')
@@ -135,6 +162,7 @@ export function SessionHeader(props: {
 
     const handleActivate = useCallback(async () => {
         if (!api || activatePending) return
+        if (isReadOnly) return
         if (session.active) {
             addToast({
                 title: t('session.activate.already.title'),
@@ -193,7 +221,8 @@ export function SessionHeader(props: {
         activatePending,
         t,
         navigate,
-        queryClient
+        queryClient,
+        isReadOnly
     ])
 
     const handleDelete = async () => {
@@ -353,9 +382,19 @@ export function SessionHeader(props: {
 
                     {/* Session info - two lines: title and path */}
                     <div className="min-w-0 flex-1">
-                        <div className="truncate font-semibold">
-                            {title}
+                        <div className="flex min-w-0 items-center gap-2">
+                            <div className="truncate font-semibold">
+                                {title}
+                            </div>
+                            {isReadOnly ? (
+                                <ReadOnlyBadge reason={session.metadata?.readOnlyReason} />
+                            ) : null}
                         </div>
+                        {machineLabel ? (
+                            <div className="truncate text-xs text-[var(--app-hint)]">
+                                {machineLabel}
+                            </div>
+                        ) : null}
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-[var(--app-hint)]">
                             <span className="inline-flex items-center gap-1">
                                 <span aria-hidden="true">❖</span>
@@ -436,10 +475,11 @@ export function SessionHeader(props: {
                 onClose={() => setMenuOpen(false)}
                 sessionActive={session.active}
                 onActivate={handleActivate}
-                activateDisabled={activatePending || isPending}
+                activateDisabled={activatePending || isPending || isReadOnly}
                 onRename={() => setRenameOpen(true)}
                 onArchive={() => setArchiveOpen(true)}
                 onDelete={() => setDeleteOpen(true)}
+                deleteDisabled={isPending || isReadOnly}
                 anchorPoint={menuAnchorPoint}
                 menuId={menuId}
             />

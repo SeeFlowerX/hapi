@@ -3,7 +3,7 @@ import { AttachmentMetadataSchema } from '@hapi/protocol/schemas'
 import { z } from 'zod'
 import type { SyncEngine } from '../../sync/syncEngine'
 import type { WebAppEnv } from '../middleware/auth'
-import { requireSessionFromParam, requireSyncEngine } from './guards'
+import { requireSessionFromParam, requireSyncEngine, requireWritableSession } from './guards'
 
 const querySchema = z.object({
     limit: z.coerce.number().int().min(1).max(200).optional(),
@@ -46,6 +46,10 @@ export function createMessagesRoutes(getSyncEngine: () => SyncEngine | null): Ho
         const sessionResult = requireSessionFromParam(c, engine, { requireActive: true })
         if (sessionResult instanceof Response) {
             return sessionResult
+        }
+        const readOnlyResponse = requireWritableSession(c, sessionResult.session)
+        if (readOnlyResponse) {
+            return readOnlyResponse
         }
         const sessionId = sessionResult.sessionId
 

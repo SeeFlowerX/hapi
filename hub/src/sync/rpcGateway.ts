@@ -51,6 +51,11 @@ export type RpcPathExistsResponse = {
     exists: Record<string, boolean>
 }
 
+export type RpcCodexSyncRequest = {
+    mode: 'full' | 'session'
+    codexSessionId?: string
+}
+
 export class RpcGateway {
     constructor(
         private readonly io: Server,
@@ -193,6 +198,10 @@ export class RpcGateway {
 
     async createMachineDirectory(machineId: string, path: string): Promise<RpcCreateDirectoryResponse> {
         return await this.machineRpc(machineId, 'createDirectory', { path }) as RpcCreateDirectoryResponse
+    }
+
+    async codexSync(machineId: string, payload: RpcCodexSyncRequest): Promise<unknown> {
+        return await this.machineRpc(machineId, 'codex-sync', payload)
     }
 
     async uploadFile(sessionId: string, filename: string, content: string, mimeType: string): Promise<RpcUploadFileResponse> {

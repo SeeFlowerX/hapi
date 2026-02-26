@@ -25,6 +25,13 @@ export const MetadataSchema = z.object({
     version: z.string().optional(),
     name: z.string().optional(),
     os: z.string().optional(),
+    readOnly: z.boolean().optional(),
+    readOnlyReason: z.string().optional(),
+    external: z.object({
+        running: z.boolean().optional(),
+        detectedAt: z.number().optional(),
+        source: z.string().optional()
+    }).optional(),
     summary: MetadataSummarySchema.optional(),
     machineId: z.string().optional(),
     claudeSessionId: z.string().optional(),

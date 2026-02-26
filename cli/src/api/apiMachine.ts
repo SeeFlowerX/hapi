@@ -53,6 +53,7 @@ type MachineRpcHandlers = {
     spawnSession: (options: SpawnSessionOptions) => Promise<SpawnSessionResult>
     stopSession: (sessionId: string) => boolean
     requestShutdown: () => void
+    codexSync: (params: { mode: 'full' | 'session'; codexSessionId?: string }) => Promise<{ ok: true }>
 }
 
 interface PathExistsRequest {
@@ -101,7 +102,7 @@ export class ApiMachineClient {
         })
     }
 
-    setRPCHandlers({ spawnSession, stopSession, requestShutdown }: MachineRpcHandlers): void {
+    setRPCHandlers({ spawnSession, stopSession, requestShutdown, codexSync }: MachineRpcHandlers): void {
         this.rpcHandlerManager.registerHandler('spawn-happy-session', async (params: any) => {
             const { directory, sessionId, resumeSessionId, machineId, approvedNewDirectoryCreation, agent, model, yolo, token, sessionType, worktreeName } = params || {}
 
@@ -150,6 +151,19 @@ export class ApiMachineClient {
         this.rpcHandlerManager.registerHandler('stop-runner', () => {
             setTimeout(() => requestShutdown(), 100)
             return { message: 'Runner stop request acknowledged' }
+        })
+
+        this.rpcHandlerManager.registerHandler('codex-sync', async (params: any) => {
+            const raw = params || {}
+            const mode = raw.mode === 'session' ? 'session' : 'full'
+            const codexSessionId = typeof raw.codexSessionId === 'string' ? raw.codexSessionId : undefined
+
+            if (mode === 'session' && !codexSessionId) {
+                throw new Error('codexSessionId is required for session sync')
+            }
+
+            await codexSync({ mode, codexSessionId })
+            return { ok: true }
         })
     }
 

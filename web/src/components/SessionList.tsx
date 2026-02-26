@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
-import type { SessionSummary } from '@/types/api'
+import type { Machine, SessionSummary } from '@/types/api'
 import { getCodexModelLabel } from '@/lib/codexModels'
 import type { ApiClient } from '@/api/client'
 import { useLongPress } from '@/hooks/useLongPress'
@@ -14,11 +14,24 @@ import { useTranslation } from '@/lib/use-translation'
 import { useToast } from '@/lib/toast-context'
 import { fetchLatestMessages, seedMessageWindowFromSession } from '@/lib/message-window-store'
 import { queryKeys } from '@/lib/query-keys'
+import { getMachineLabel } from '@/lib/machineLabel'
+import { ReadOnlyBadge } from '@/components/ReadOnlyBadge'
 
 type SessionGroup = {
     directory: string
     displayName: string
     sessions: SessionSummary[]
+    latestUpdatedAt: number
+    hasActiveSession: boolean
+}
+
+type MachineGroup = {
+    machineId: string
+    label: string
+    machine?: Machine | null
+    online: boolean
+    sessions: SessionSummary[]
+    directoryGroups: SessionGroup[]
     latestUpdatedAt: number
     hasActiveSession: boolean
 }
@@ -58,6 +71,51 @@ function groupSessionsByDirectory(sessions: SessionSummary[]): SessionGroup[] {
             const displayName = getGroupDisplayName(directory)
 
             return { directory, displayName, sessions: sortedSessions, latestUpdatedAt, hasActiveSession }
+        })
+        .sort((a, b) => {
+            if (a.hasActiveSession !== b.hasActiveSession) {
+                return a.hasActiveSession ? -1 : 1
+            }
+            return b.latestUpdatedAt - a.latestUpdatedAt
+        })
+}
+
+function groupSessionsByMachine(sessions: SessionSummary[], machines: Map<string, Machine>): MachineGroup[] {
+    const groups = new Map<string, SessionSummary[]>()
+
+    sessions.forEach(session => {
+        const machineId = session.metadata?.machineId ?? 'unknown'
+        if (!groups.has(machineId)) {
+            groups.set(machineId, [])
+        }
+        groups.get(machineId)!.push(session)
+    })
+
+    return Array.from(groups.entries())
+        .map(([machineId, groupSessions]) => {
+            const machine = machines.get(machineId) ?? null
+            const latestUpdatedAt = groupSessions.reduce(
+                (max, s) => (s.updatedAt > max ? s.updatedAt : max),
+                -Infinity
+            )
+            const hasActiveSession = groupSessions.some(s => s.active)
+            const directoryGroups = groupSessionsByDirectory(groupSessions)
+            const label = getMachineLabel({
+                machine,
+                metadata: groupSessions[0]?.metadata ?? null,
+                machineId
+            })
+
+            return {
+                machineId,
+                label,
+                machine,
+                online: Boolean(machine),
+                sessions: groupSessions,
+                directoryGroups,
+                latestUpdatedAt,
+                hasActiveSession
+            }
         })
         .sort((a, b) => {
             if (a.hasActiveSession !== b.hasActiveSession) {
@@ -209,12 +267,16 @@ function SessionItem(props: {
     })
 
     const sessionName = getSessionTitle(s)
+    const isReadOnly = Boolean(s.metadata?.readOnly)
     const statusDotClass = s.active
         ? (s.thinking ? 'bg-[#007AFF]' : 'bg-[var(--app-badge-success-text)]')
         : 'bg-[var(--app-hint)]'
 
     const handleActivate = async () => {
         if (!api || activatePending) return
+        if (isReadOnly) {
+            return
+        }
         if (s.active) {
             addToast({
                 title: t('session.activate.already.title'),
@@ -283,8 +345,13 @@ function SessionItem(props: {
                                 className={`h-2 w-2 rounded-full ${statusDotClass}`}
                             />
                         </span>
-                        <div className="truncate text-base font-medium">
-                            {sessionName}
+                        <div className="flex min-w-0 items-center gap-2">
+                            <div className="truncate text-base font-medium">
+                                {sessionName}
+                            </div>
+                            {isReadOnly ? (
+                                <ReadOnlyBadge reason={s.metadata?.readOnlyReason} />
+                            ) : null}
                         </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0 text-xs">
@@ -349,10 +416,11 @@ function SessionItem(props: {
                 onClose={() => setMenuOpen(false)}
                 sessionActive={s.active}
                 onActivate={handleActivate}
-                activateDisabled={activatePending || isPending}
+                activateDisabled={activatePending || isPending || isReadOnly}
                 onRename={() => setRenameOpen(true)}
                 onArchive={() => setArchiveOpen(true)}
                 onDelete={() => setDeleteOpen(true)}
+                deleteDisabled={isPending || isReadOnly}
                 anchorPoint={menuAnchorPoint}
             />
 
@@ -393,6 +461,7 @@ function SessionItem(props: {
 
 export function SessionList(props: {
     sessions: SessionSummary[]
+    machines: Machine[]
     onSelect: (sessionId: string) => void
     onNewSession: () => void
     onRefresh: () => void
@@ -403,23 +472,29 @@ export function SessionList(props: {
 }) {
     const { t } = useTranslation()
     const { renderHeader = true, api, selectedSessionId } = props
+    const { addToast } = useToast()
+    const machineMap = useMemo(
+        () => new Map(props.machines.map(machine => [machine.id, machine])),
+        [props.machines]
+    )
     const groups = useMemo(
-        () => groupSessionsByDirectory(props.sessions),
-        [props.sessions]
+        () => groupSessionsByMachine(props.sessions, machineMap),
+        [props.sessions, machineMap]
     )
     const [collapseOverrides, setCollapseOverrides] = useState<Map<string, boolean>>(
         () => new Map()
     )
-    const isGroupCollapsed = (group: SessionGroup): boolean => {
-        const override = collapseOverrides.get(group.directory)
+    const isGroupCollapsed = (machineId: string, group: SessionGroup): boolean => {
+        const key = `${machineId}:${group.directory}`
+        const override = collapseOverrides.get(key)
         if (override !== undefined) return override
         return !group.hasActiveSession
     }
 
-    const toggleGroup = (directory: string, isCollapsed: boolean) => {
+    const toggleGroup = (machineId: string, directory: string, isCollapsed: boolean) => {
         setCollapseOverrides(prev => {
             const next = new Map(prev)
-            next.set(directory, !isCollapsed)
+            next.set(`${machineId}:${directory}`, !isCollapsed)
             return next
         })
     }
@@ -428,7 +503,9 @@ export function SessionList(props: {
         setCollapseOverrides(prev => {
             if (prev.size === 0) return prev
             const next = new Map(prev)
-            const knownGroups = new Set(groups.map(group => group.directory))
+            const knownGroups = new Set(
+                groups.flatMap(group => group.directoryGroups.map(directoryGroup => `${group.machineId}:${directoryGroup.directory}`))
+            )
             let changed = false
             for (const directory of next.keys()) {
                 if (!knownGroups.has(directory)) {
@@ -440,12 +517,50 @@ export function SessionList(props: {
         })
     }, [groups])
 
+    const directoryCount = groups.reduce((count, group) => count + group.directoryGroups.length, 0)
+    const [syncingMachineId, setSyncingMachineId] = useState<string | null>(null)
+
+    const handleMachineSync = async (machine: MachineGroup) => {
+        if (!api) return
+        if (!machine.online) {
+            addToast({
+                title: t('session.machine.sync.offline.title'),
+                body: t('session.machine.sync.offline.body'),
+                sessionId: '',
+                url: ''
+            })
+            return
+        }
+        if (syncingMachineId === machine.machineId) return
+        setSyncingMachineId(machine.machineId)
+        try {
+            await api.codexSyncMachine(machine.machineId)
+            addToast({
+                title: t('session.machine.sync.success.title'),
+                body: t('session.machine.sync.success.body'),
+                sessionId: '',
+                url: ''
+            })
+            props.onRefresh()
+        } catch (error) {
+            const message = error instanceof Error ? error.message : t('dialog.error.default')
+            addToast({
+                title: t('session.machine.sync.error.title'),
+                body: message,
+                sessionId: '',
+                url: ''
+            })
+        } finally {
+            setSyncingMachineId(null)
+        }
+    }
+
     return (
         <div className="mx-auto w-full max-w-content flex flex-col">
             {renderHeader ? (
                 <div className="flex items-center justify-between px-3 py-1">
                     <div className="text-xs text-[var(--app-hint)]">
-                        {t('sessions.count', { n: props.sessions.length, m: groups.length })}
+                        {t('sessions.count', { n: props.sessions.length, m: directoryCount })}
                     </div>
                     <button
                         type="button"
@@ -459,46 +574,75 @@ export function SessionList(props: {
             ) : null}
 
             <div className="flex flex-col">
-                {groups.map((group) => {
-                    const isCollapsed = isGroupCollapsed(group)
-                    return (
-                        <div key={group.directory}>
+                {groups.map((machineGroup) => (
+                    <div key={machineGroup.machineId} className="border-b border-[var(--app-divider)]">
+                        <div className="sticky top-0 z-20 flex w-full items-center justify-between gap-3 px-3 py-2 bg-[var(--app-bg)] border-b border-[var(--app-divider)]">
+                            <div className="flex items-center gap-2 min-w-0">
+                                <span
+                                    className={`h-2 w-2 rounded-full ${machineGroup.online ? 'bg-[var(--app-badge-success-text)]' : 'bg-[var(--app-hint)]'}`}
+                                />
+                                <span className="truncate text-xs font-semibold" title={machineGroup.label}>
+                                    {machineGroup.label}
+                                </span>
+                                {!machineGroup.online ? (
+                                    <span className="text-[10px] text-[var(--app-hint)]">
+                                        {t('session.machine.offline')}
+                                    </span>
+                                ) : null}
+                            </div>
                             <button
                                 type="button"
-                                onClick={() => toggleGroup(group.directory, isCollapsed)}
-                                className="sticky top-0 z-10 flex w-full items-center gap-2 px-3 py-2 text-left bg-[var(--app-bg)] border-b border-[var(--app-divider)] transition-colors hover:bg-[var(--app-secondary-bg)]"
+                                onClick={() => handleMachineSync(machineGroup)}
+                                disabled={!machineGroup.online || syncingMachineId === machineGroup.machineId}
+                                className={`rounded-full border px-2 py-1 text-[10px] font-semibold transition-colors ${machineGroup.online ? 'border-[var(--app-border)] text-[var(--app-link)] hover:bg-[var(--app-secondary-bg)]' : 'border-[var(--app-divider)] text-[var(--app-hint)]'}`}
+                                title={machineGroup.online ? t('session.machine.sync') : t('session.machine.sync.offline.body')}
                             >
-                                <ChevronIcon
-                                    className="h-4 w-4 text-[var(--app-hint)]"
-                                    collapsed={isCollapsed}
-                                />
-                                <div className="flex items-center gap-2 min-w-0 flex-1">
-                                    <span className="font-medium text-base break-words" title={group.directory}>
-                                        {group.displayName}
-                                    </span>
-                                    <span className="shrink-0 text-xs text-[var(--app-hint)]">
-                                        ({group.sessions.length})
-                                    </span>
-                                </div>
+                                {syncingMachineId === machineGroup.machineId ? t('session.machine.syncing') : t('session.machine.sync')}
                             </button>
-                            {!isCollapsed ? (
-                                <div className="flex flex-col divide-y divide-[var(--app-divider)] border-b border-[var(--app-divider)]">
-                                    {group.sessions.map((s) => (
-                                        <SessionItem
-                                            key={s.id}
-                                            session={s}
-                                            onSelect={props.onSelect}
-                                            onRefresh={props.onRefresh}
-                                            showPath={false}
-                                            api={api}
-                                            selected={s.id === selectedSessionId}
-                                        />
-                                    ))}
-                                </div>
-                            ) : null}
                         </div>
-                    )
-                })}
+
+                        {machineGroup.directoryGroups.map((group) => {
+                            const isCollapsed = isGroupCollapsed(machineGroup.machineId, group)
+                            return (
+                                <div key={`${machineGroup.machineId}:${group.directory}`}>
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleGroup(machineGroup.machineId, group.directory, isCollapsed)}
+                                        className="sticky top-0 z-10 flex w-full items-center gap-2 px-3 py-2 text-left bg-[var(--app-bg)] border-b border-[var(--app-divider)] transition-colors hover:bg-[var(--app-secondary-bg)]"
+                                    >
+                                        <ChevronIcon
+                                            className="h-4 w-4 text-[var(--app-hint)]"
+                                            collapsed={isCollapsed}
+                                        />
+                                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                                            <span className="font-medium text-base break-words" title={group.directory}>
+                                                {group.displayName}
+                                            </span>
+                                            <span className="shrink-0 text-xs text-[var(--app-hint)]">
+                                                ({group.sessions.length})
+                                            </span>
+                                        </div>
+                                    </button>
+                                    {!isCollapsed ? (
+                                        <div className="flex flex-col divide-y divide-[var(--app-divider)]">
+                                            {group.sessions.map((s) => (
+                                                <SessionItem
+                                                    key={s.id}
+                                                    session={s}
+                                                    onSelect={props.onSelect}
+                                                    onRefresh={props.onRefresh}
+                                                    showPath={false}
+                                                    api={api}
+                                                    selected={s.id === selectedSessionId}
+                                                />
+                                            ))}
+                                        </div>
+                                    ) : null}
+                                </div>
+                            )
+                        })}
+                    </div>
+                ))}
             </div>
         </div>
     )

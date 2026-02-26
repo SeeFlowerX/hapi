@@ -73,6 +73,15 @@ export const CliMessagesResponseSchema = z.object({
 
 export type CliMessagesResponse = z.infer<typeof CliMessagesResponseSchema>
 
+export const CliSessionsResponseSchema = z.object({
+    sessions: z.array(z.object({
+        id: z.string(),
+        metadata: z.unknown().nullable()
+    }))
+})
+
+export type CliSessionsResponse = z.infer<typeof CliSessionsResponseSchema>
+
 export const CreateSessionResponseSchema = z.object({
     session: z.object({
         id: z.string(),

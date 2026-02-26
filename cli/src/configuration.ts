@@ -23,6 +23,7 @@ class Configuration {
     public readonly privateKeyFile: string
     public readonly runnerStateFile: string
     public readonly runnerLockFile: string
+    public readonly codexSyncStateFile: string
     public readonly currentCliVersion: string
 
     public readonly isExperimentalEnabled: boolean
@@ -50,6 +51,7 @@ class Configuration {
         this.privateKeyFile = join(this.happyHomeDir, 'access.key')
         this.runnerStateFile = join(this.happyHomeDir, 'runner.state.json')
         this.runnerLockFile = join(this.happyHomeDir, 'runner.state.json.lock')
+        this.codexSyncStateFile = join(this.happyHomeDir, 'codex-sync.json')
 
         this.isExperimentalEnabled = ['true', '1', 'yes'].includes(process.env.HAPI_EXPERIMENTAL?.toLowerCase() || '')
 

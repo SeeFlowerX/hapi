@@ -4,10 +4,19 @@ import type { Session, WorktreeMetadata } from './schemas'
 export type SessionSummaryMetadata = {
     name?: string
     path: string
+    host?: string
+    os?: string
     machineId?: string
     summary?: { text: string }
     flavor?: string | null
     worktree?: WorktreeMetadata
+    readOnly?: boolean
+    readOnlyReason?: string
+    external?: {
+        running?: boolean
+        detectedAt?: number
+        source?: string
+    }
 }
 
 export type SessionSummary = {
@@ -29,10 +38,15 @@ export function toSessionSummary(session: Session): SessionSummary {
     const metadata: SessionSummaryMetadata | null = session.metadata ? {
         name: session.metadata.name,
         path: session.metadata.path,
+        host: session.metadata.host,
+        os: session.metadata.os,
         machineId: session.metadata.machineId ?? undefined,
         summary: session.metadata.summary ? { text: session.metadata.summary.text } : undefined,
         flavor: session.metadata.flavor ?? null,
-        worktree: session.metadata.worktree
+        worktree: session.metadata.worktree,
+        readOnly: session.metadata.readOnly,
+        readOnlyReason: session.metadata.readOnlyReason,
+        external: session.metadata.external
     } : null
 
     const todoProgress = session.todos?.length ? {

@@ -19,6 +19,7 @@ import { MessageService } from './messageService'
 import {
     RpcGateway,
     type RpcCommandResponse,
+    type RpcCodexSyncRequest,
     type RpcCreateDirectoryResponse,
     type RpcDeleteUploadResponse,
     type RpcListDirectoryResponse,
@@ -514,6 +515,10 @@ export class SyncEngine {
 
     async createMachineDirectory(machineId: string, path: string): Promise<RpcCreateDirectoryResponse> {
         return await this.rpcGateway.createMachineDirectory(machineId, path)
+    }
+
+    async codexSync(machineId: string, payload: RpcCodexSyncRequest): Promise<unknown> {
+        return await this.rpcGateway.codexSync(machineId, payload)
     }
 
     async uploadFile(sessionId: string, filename: string, content: string, mimeType: string): Promise<RpcUploadFileResponse> {

@@ -4,7 +4,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import type { SyncEngine, Session } from '../../sync/syncEngine'
 import type { WebAppEnv } from '../middleware/auth'
-import { requireSessionFromParam, requireSyncEngine } from './guards'
+import { requireSessionFromParam, requireSyncEngine, requireWritableSession } from './guards'
 
 const permissionModeSchema = z.object({
     mode: PermissionModeSchema
@@ -87,6 +87,37 @@ export function createSessionsRoutes(getSyncEngine: () => SyncEngine | null): Ho
         return c.json({ session: sessionResult.session })
     })
 
+    app.post('/sessions/:id/codex-sync', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) {
+            return engine
+        }
+
+        const sessionResult = requireSessionFromParam(c, engine)
+        if (sessionResult instanceof Response) {
+            return sessionResult
+        }
+
+        const metadata = sessionResult.session.metadata
+        if (!metadata?.machineId) {
+            return c.json({ error: 'Session machineId missing' }, 400)
+        }
+        if (!metadata.codexSessionId) {
+            return c.json({ error: 'Codex session ID missing' }, 400)
+        }
+
+        try {
+            await engine.codexSync(metadata.machineId, { mode: 'session', codexSessionId: metadata.codexSessionId })
+            return c.json({ ok: true })
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Codex sync failed'
+            const status = message.includes('RPC handler not registered') || message.includes('socket')
+                ? 503
+                : 500
+            return c.json({ error: message }, status)
+        }
+    })
+
     app.post('/sessions/:id/resume', async (c) => {
         const engine = requireSyncEngine(c, getSyncEngine)
         if (engine instanceof Response) {
@@ -96,6 +127,10 @@ export function createSessionsRoutes(getSyncEngine: () => SyncEngine | null): Ho
         const sessionResult = requireSessionFromParam(c, engine)
         if (sessionResult instanceof Response) {
             return sessionResult
+        }
+        const readOnlyResponse = requireWritableSession(c, sessionResult.session)
+        if (readOnlyResponse) {
+            return readOnlyResponse
         }
 
         const namespace = c.get('namespace')
@@ -120,6 +155,10 @@ export function createSessionsRoutes(getSyncEngine: () => SyncEngine | null): Ho
         const sessionResult = requireSessionFromParam(c, engine, { requireActive: true })
         if (sessionResult instanceof Response) {
             return sessionResult
+        }
+        const readOnlyResponse = requireWritableSession(c, sessionResult.session)
+        if (readOnlyResponse) {
+            return readOnlyResponse
         }
 
         const body = await c.req.json().catch(() => null)
@@ -159,6 +198,10 @@ export function createSessionsRoutes(getSyncEngine: () => SyncEngine | null): Ho
         if (sessionResult instanceof Response) {
             return sessionResult
         }
+        const readOnlyResponse = requireWritableSession(c, sessionResult.session)
+        if (readOnlyResponse) {
+            return readOnlyResponse
+        }
 
         const body = await c.req.json().catch(() => null)
         const parsed = uploadDeleteSchema.safeParse(body)
@@ -186,6 +229,10 @@ export function createSessionsRoutes(getSyncEngine: () => SyncEngine | null): Ho
         const sessionResult = requireSessionFromParam(c, engine, { requireActive: true })
         if (sessionResult instanceof Response) {
             return sessionResult
+        }
+        const readOnlyResponse = requireWritableSession(c, sessionResult.session)
+        if (readOnlyResponse) {
+            return readOnlyResponse
         }
 
         await engine.abortSession(sessionResult.sessionId)
@@ -217,6 +264,10 @@ export function createSessionsRoutes(getSyncEngine: () => SyncEngine | null): Ho
         if (sessionResult instanceof Response) {
             return sessionResult
         }
+        const readOnlyResponse = requireWritableSession(c, sessionResult.session)
+        if (readOnlyResponse) {
+            return readOnlyResponse
+        }
 
         await engine.switchSession(sessionResult.sessionId, 'remote')
         return c.json({ ok: true })
@@ -231,6 +282,10 @@ export function createSessionsRoutes(getSyncEngine: () => SyncEngine | null): Ho
         const sessionResult = requireSessionFromParam(c, engine, { requireActive: true })
         if (sessionResult instanceof Response) {
             return sessionResult
+        }
+        const readOnlyResponse = requireWritableSession(c, sessionResult.session)
+        if (readOnlyResponse) {
+            return readOnlyResponse
         }
 
         const body = await c.req.json().catch(() => null)
@@ -270,6 +325,10 @@ export function createSessionsRoutes(getSyncEngine: () => SyncEngine | null): Ho
         if (sessionResult instanceof Response) {
             return sessionResult
         }
+        const readOnlyResponse = requireWritableSession(c, sessionResult.session)
+        if (readOnlyResponse) {
+            return readOnlyResponse
+        }
 
         const body = await c.req.json().catch(() => null)
         const parsed = modelModeSchema.safeParse(body)
@@ -300,6 +359,10 @@ export function createSessionsRoutes(getSyncEngine: () => SyncEngine | null): Ho
         const sessionResult = requireSessionFromParam(c, engine, { requireActive: true })
         if (sessionResult instanceof Response) {
             return sessionResult
+        }
+        const readOnlyResponse = requireWritableSession(c, sessionResult.session)
+        if (readOnlyResponse) {
+            return readOnlyResponse
         }
 
         const body = await c.req.json().catch(() => null)
@@ -367,6 +430,10 @@ export function createSessionsRoutes(getSyncEngine: () => SyncEngine | null): Ho
         const sessionResult = requireSessionFromParam(c, engine)
         if (sessionResult instanceof Response) {
             return sessionResult
+        }
+        const readOnlyResponse = requireWritableSession(c, sessionResult.session)
+        if (readOnlyResponse) {
+            return readOnlyResponse
         }
 
         if (sessionResult.session.active) {

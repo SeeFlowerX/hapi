@@ -389,10 +389,7 @@ export class ApiSessionClient extends EventEmitter {
             }
         }
 
-        this.socket.emit('message', {
-            sid: this.sessionId,
-            message: content
-        })
+        this.sendMessageContent(content)
     }
 
     sendCodexMessage(body: unknown): void {
@@ -406,9 +403,14 @@ export class ApiSessionClient extends EventEmitter {
                 sentFrom: 'cli'
             }
         }
+        this.sendMessageContent(content)
+    }
+
+    sendMessageContent(content: MessageContent, localId?: string): void {
         this.socket.emit('message', {
             sid: this.sessionId,
-            message: content
+            message: content,
+            localId
         })
     }
 
@@ -458,8 +460,8 @@ export class ApiSessionClient extends EventEmitter {
         this.socket.emit('session-end', { sid: this.sessionId, time: Date.now() })
     }
 
-    updateMetadata(handler: (metadata: Metadata) => Metadata): void {
-        this.metadataLock.inLock(async () => {
+    updateMetadata(handler: (metadata: Metadata) => Metadata): Promise<void> {
+        return this.metadataLock.inLock(async () => {
             await backoff(async () => {
                 const current = this.metadata ?? ({} as Metadata)
                 const updated = handler(current)
@@ -494,8 +496,8 @@ export class ApiSessionClient extends EventEmitter {
         })
     }
 
-    updateAgentState(handler: (state: AgentState) => AgentState): void {
-        this.agentStateLock.inLock(async () => {
+    updateAgentState(handler: (state: AgentState) => AgentState): Promise<void> {
+        return this.agentStateLock.inLock(async () => {
             await backoff(async () => {
                 const current = this.agentState ?? ({} as AgentState)
                 const updated = handler(current)

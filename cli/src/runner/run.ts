@@ -14,6 +14,7 @@ import { writeRunnerState, RunnerLocallyPersistedState, readRunnerState, acquire
 import { isProcessAlive, isWindows, killProcess, killProcessByChildProcess } from '@/utils/process';
 import { withRetry } from '@/utils/time';
 import { isRetryableConnectionError } from '@/utils/errorUtils';
+import { createCodexSyncManager } from '@/codex/codexSync';
 
 import { cleanupRunnerState, getInstalledCliMtimeMs, isRunnerRunningCurrentlyInstalledHappyVersion, stopRunner } from './controlClient';
 import { startRunnerControlServer } from './controlServer';
@@ -554,16 +555,23 @@ export async function startRunner(): Promise<void> {
 
     // Create realtime machine session
     const apiMachine = api.machineSyncClient(machine);
+    const codexSyncManager = createCodexSyncManager({ api, machineId: machine.id });
 
     // Set RPC handlers
     apiMachine.setRPCHandlers({
       spawnSession,
       stopSession,
-      requestShutdown: () => requestShutdown('hapi-app')
+      requestShutdown: () => requestShutdown('hapi-app'),
+      codexSync: codexSyncManager.runSync
     });
 
     // Connect to server
     apiMachine.connect();
+
+    void codexSyncManager.runSync({ mode: 'full' }).catch((error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.debug(`[RUNNER RUN] Codex sync failed: ${message}`);
+    });
 
     // Every 60 seconds:
     // 1. Prune stale sessions

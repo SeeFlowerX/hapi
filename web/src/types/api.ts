@@ -24,6 +24,13 @@ export type SessionMetadataSummary = {
     version?: string
     name?: string
     os?: string
+    readOnly?: boolean
+    readOnlyReason?: string
+    external?: {
+        running?: boolean
+        detectedAt?: number
+        source?: string
+    }
     summary?: { text: string; updatedAt: number }
     machineId?: string
     tools?: string[]

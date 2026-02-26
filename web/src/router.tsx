@@ -134,6 +134,7 @@ function SessionsPage() {
     })
     const sidebarWidthRef = useRef(sidebarWidth)
     const { sessions, isLoading, error, refetch } = useSessions(api)
+    const { machines } = useMachines(api, true)
 
     const handleRefresh = useCallback(() => {
         void refetch()
@@ -293,6 +294,7 @@ function SessionsPage() {
                     ) : null}
                     <SessionList
                         sessions={sessions}
+                        machines={machines}
                         selectedSessionId={selectedSessionId}
                         onSelect={(sessionId) => navigate({
                             to: '/sessions/$sessionId',
@@ -345,6 +347,33 @@ function SessionPage() {
         flushPending,
         setAtBottom,
     } = useMessages(api, sessionId)
+
+    useEffect(() => {
+        if (!api || !session) return
+        if (!session.metadata?.readOnly || !session.metadata?.external?.running) {
+            return
+        }
+        let stopped = false
+        const syncOnce = async () => {
+            if (stopped) return
+            try {
+                await api.codexSyncSession(session.id)
+            } catch {
+                // ignore
+            }
+        }
+        const interval = setInterval(syncOnce, 5000)
+        void syncOnce()
+        return () => {
+            stopped = true
+            clearInterval(interval)
+        }
+    }, [
+        api,
+        session?.id,
+        session?.metadata?.readOnly,
+        session?.metadata?.external?.running
+    ])
     const {
         sendMessage,
         retryMessage,

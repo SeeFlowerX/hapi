@@ -46,6 +46,16 @@ export function requireSessionFromParam(
     return result
 }
 
+export function requireWritableSession(
+    c: Context<WebAppEnv>,
+    session: Session
+): Response | null {
+    if (session.metadata?.readOnly) {
+        return c.json({ error: 'Session is read-only', code: 'read_only' }, 409)
+    }
+    return null
+}
+
 export function requireMachine(
     c: Context<WebAppEnv>,
     engine: SyncEngine,
