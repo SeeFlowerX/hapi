@@ -113,24 +113,6 @@ function SettingsIcon(props: { className?: string }) {
     )
 }
 
-function FilterIcon(props: { className?: string }) {
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={props.className}
-        >
-            <polygon points="3 4 21 4 14 12 14 19 10 21 10 12 3 4" />
-        </svg>
-    )
-}
 
 function SessionsPage() {
     const { api } = useAppContext()
@@ -155,7 +137,6 @@ function SessionsPage() {
     const sidebarWidthRef = useRef(sidebarWidth)
     const { sessions, isLoading, error, refetch } = useSessions(api)
     const { machines } = useMachines(api, true)
-    const [filterOpen, setFilterOpen] = useState(false)
     const [filterText, setFilterText] = useState('')
     const normalizedFilter = filterText.trim()
 
@@ -292,18 +273,6 @@ function SessionsPage() {
                             <div className="flex items-center gap-2">
                                 <button
                                     type="button"
-                                    onClick={() => setFilterOpen((prev) => !prev)}
-                                    className={`rounded-full p-1.5 transition-colors ${
-                                        filterOpen || normalizedFilter
-                                            ? 'text-[var(--app-link)]'
-                                            : 'text-[var(--app-hint)]'
-                                    } hover:text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)]`}
-                                    title={t('sessions.filter.button')}
-                                >
-                                    <FilterIcon className="h-4 w-4" />
-                                </button>
-                                <button
-                                    type="button"
                                     onClick={() => navigate({ to: '/settings' })}
                                     className="p-1.5 rounded-full text-[var(--app-hint)] hover:text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] transition-colors"
                                     title={t('settings.title')}
@@ -320,25 +289,26 @@ function SessionsPage() {
                                 </button>
                             </div>
                         </div>
-                        {filterOpen || normalizedFilter ? (
-                            <div className="flex items-center gap-2">
+                        <div className="flex items-center">
+                            <div className="relative w-full">
                                 <input
                                     value={filterText}
                                     onChange={(event) => setFilterText(event.target.value)}
                                     placeholder={t('sessions.filter.placeholder')}
-                                    className="w-full rounded-md border border-[var(--app-border)] bg-[var(--app-secondary-bg)] px-2 py-1 text-xs text-[var(--app-fg)] placeholder:text-[var(--app-hint)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-link)]"
+                                    className="w-full rounded-md border border-[var(--app-border)] bg-[var(--app-secondary-bg)] px-2 py-1 pr-7 text-xs text-[var(--app-fg)] placeholder:text-[var(--app-hint)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-link)]"
                                 />
                                 {normalizedFilter ? (
                                     <button
                                         type="button"
                                         onClick={() => setFilterText('')}
-                                        className="rounded-full px-2 py-1 text-[10px] font-semibold text-[var(--app-hint)] hover:text-[var(--app-fg)]"
+                                        className="absolute right-1 top-1/2 -translate-y-1/2 rounded-full px-1.5 py-0.5 text-[10px] font-semibold text-[var(--app-hint)] hover:text-[var(--app-fg)]"
+                                        aria-label={t('sessions.filter.clear')}
                                     >
-                                        {t('sessions.filter.clear')}
+                                        ✕
                                     </button>
                                 ) : null}
                             </div>
-                        ) : null}
+                        </div>
                     </div>
                 </div>
 
@@ -362,8 +332,6 @@ function SessionsPage() {
                         renderHeader={false}
                         filterText={filterText}
                         onFilterTextChange={setFilterText}
-                        filterOpen={filterOpen}
-                        onFilterOpenChange={setFilterOpen}
                         api={api}
                     />
                 </div>
