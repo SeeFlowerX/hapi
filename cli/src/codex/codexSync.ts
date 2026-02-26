@@ -212,6 +212,25 @@ async function loadExistingCodexSessions(api: ApiClient): Promise<Map<string, Ex
     }
 }
 
+function findCursorForFile(
+    sessions: Record<string, CodexSyncCursor | undefined>,
+    filePath: string,
+    fallbackSessionId?: string | null
+): CodexSyncCursor | null {
+    if (fallbackSessionId) {
+        const direct = sessions[fallbackSessionId] ?? null
+        if (direct?.filePath === filePath) {
+            return direct
+        }
+    }
+    for (const cursor of Object.values(sessions)) {
+        if (cursor?.filePath === filePath) {
+            return cursor
+        }
+    }
+    return fallbackSessionId ? sessions[fallbackSessionId] ?? null : null
+}
+
 async function detectRunningCodexSessions(): Promise<RunningSessionInfo[]> {
     if (isWindows()) {
         return []
@@ -432,6 +451,7 @@ async function ensureSessionSynced(options: {
     sessionId: string
     filePath: string
     cursor: CodexSyncCursor | null
+    scan?: CodexSessionScan
     readOnlyInfo: { readOnly: boolean; readOnlyReason?: string; external?: { running?: boolean; detectedAt?: number; source?: string } }
     updateReadOnly: boolean
     existingSessionId?: string
@@ -442,7 +462,7 @@ async function ensureSessionSynced(options: {
         return cursor ?? { filePath, lastLineIndex: 0 }
     }
     const startLine = cursor?.lastLineIndex ?? 0
-    const scan = await readSessionFile(filePath, startLine)
+    const scan = options.scan ?? await readSessionFile(filePath, startLine)
     const meta = scan.meta
 
     if (!meta || !meta.id) {
@@ -557,17 +577,22 @@ export function createCodexSyncManager(options: { api: ApiClient; machineId: str
             }
 
             for (const filePath of files) {
-                let sessionId = extractSessionIdFromPath(filePath)
-                if (!sessionId) {
-                    const scan = await readSessionFile(filePath, 0)
-                    sessionId = scan.meta?.id ?? null
-                }
-                if (!sessionId) {
+                const extractedSessionId = extractSessionIdFromPath(filePath)
+                const cursorForFile = findCursorForFile(state.sessions, filePath, extractedSessionId)
+                const scan = await readSessionFile(filePath, cursorForFile?.lastLineIndex ?? 0)
+                const resolvedSessionId = scan.meta?.id ?? extractedSessionId
+                if (!resolvedSessionId) {
                     continue
                 }
-                const cursor = state.sessions[sessionId] ?? null
-                const runningInfo = runningMap.get(sessionId)
-                const existingCandidate = existingSessions.get(sessionId)
+                const cursor = state.sessions[resolvedSessionId] ?? cursorForFile ?? null
+                const runningInfo = runningMap.get(resolvedSessionId)
+                    ?? (extractedSessionId && extractedSessionId !== resolvedSessionId
+                        ? runningMap.get(extractedSessionId)
+                        : undefined)
+                const existingCandidate = existingSessions.get(resolvedSessionId)
+                    ?? (extractedSessionId && extractedSessionId !== resolvedSessionId
+                        ? existingSessions.get(extractedSessionId)
+                        : undefined)
                 const candidateMetadata = existingCandidate?.metadata ?? null
                 const matchesMachine = !candidateMetadata?.machineId || candidateMetadata.machineId === options.machineId
                 const existing = matchesMachine ? existingCandidate : undefined
@@ -602,9 +627,10 @@ export function createCodexSyncManager(options: { api: ApiClient; machineId: str
                 const updated = await ensureSessionSynced({
                     api: options.api,
                     machineId: options.machineId,
-                    sessionId,
+                    sessionId: resolvedSessionId,
                     filePath,
                     cursor,
+                    scan,
                     readOnlyInfo,
                     updateReadOnly: true,
                     existingSessionId,
@@ -612,7 +638,10 @@ export function createCodexSyncManager(options: { api: ApiClient; machineId: str
                 })
 
                 if (updated) {
-                    nextState.sessions[sessionId] = updated
+                    nextState.sessions[resolvedSessionId] = updated
+                    if (extractedSessionId && extractedSessionId !== resolvedSessionId) {
+                        delete nextState.sessions[extractedSessionId]
+                    }
                 }
             }
 
