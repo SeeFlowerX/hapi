@@ -4,10 +4,10 @@ import { useMemo } from 'react'
 import type { AgentState, ModelMode, PermissionMode } from '@/types/api'
 import type { ConversationStatus } from '@/realtime/types'
 import { getContextBudgetTokens } from '@/chat/modelConfig'
-import { useTranslation } from '@/lib/use-translation'
+import { useTranslation, type Locale } from '@/lib/use-translation'
 
 // Vibing messages for thinking state
-const VIBING_MESSAGES = [
+const VIBING_MESSAGES_EN = [
     "Accomplishing", "Actioning", "Actualizing", "Baking", "Booping", "Brewing",
     "Calculating", "Cerebrating", "Channelling", "Churning", "Clauding", "Coalescing",
     "Cogitating", "Computing", "Combobulating", "Concocting", "Conjuring", "Considering",
@@ -25,6 +25,14 @@ const VIBING_MESSAGES = [
     "Wibbling", "Wizarding", "Working", "Wrangling"
 ]
 
+const VIBING_MESSAGES_ZH = [
+    "处理中", "思考中", "推演中", "规划中", "推理中", "整理中",
+    "组合中", "分析中", "计算中", "构思中", "探索中", "推敲中",
+    "生成中", "梳理中", "推断中", "验证中", "归纳中", "演算中",
+    "构建中", "调度中", "编织中", "处理细节中", "优化中", "回溯中",
+    "拟定中", "构想中", "推演方案中", "收敛中", "汇总中", "琢磨中"
+]
+
 const PERMISSION_TONE_CLASSES: Record<PermissionModeTone, string> = {
     neutral: 'text-[var(--app-hint)]',
     info: 'text-blue-500',
@@ -37,7 +45,8 @@ function getConnectionStatus(
     thinking: boolean,
     agentState: AgentState | null | undefined,
     voiceStatus: ConversationStatus | undefined,
-    t: (key: string) => string
+    t: (key: string) => string,
+    locale: Locale
 ): { text: string; color: string; dotColor: string; isPulsing: boolean } {
     const hasPermissions = agentState?.requests && Object.keys(agentState.requests).length > 0
 
@@ -70,7 +79,11 @@ function getConnectionStatus(
     }
 
     if (thinking) {
-        const vibingMessage = VIBING_MESSAGES[Math.floor(Math.random() * VIBING_MESSAGES.length)].toLowerCase() + '…'
+        const vibingMessages = locale === 'zh-CN' ? VIBING_MESSAGES_ZH : VIBING_MESSAGES_EN
+        const picked = vibingMessages[Math.floor(Math.random() * vibingMessages.length)] ?? 'Thinking'
+        const vibingMessage = locale === 'zh-CN'
+            ? `${picked}…`
+            : `${picked.toLowerCase()}…`
         return {
             text: vibingMessage,
             color: 'text-[#007AFF]',
@@ -111,10 +124,10 @@ export function StatusBar(props: {
     agentFlavor?: string | null
     voiceStatus?: ConversationStatus
 }) {
-    const { t } = useTranslation()
+    const { t, locale } = useTranslation()
     const connectionStatus = useMemo(
-        () => getConnectionStatus(props.active, props.thinking, props.agentState, props.voiceStatus, t),
-        [props.active, props.thinking, props.agentState, props.voiceStatus, t]
+        () => getConnectionStatus(props.active, props.thinking, props.agentState, props.voiceStatus, t, locale),
+        [props.active, props.thinking, props.agentState, props.voiceStatus, t, locale]
     )
 
     const contextWarning = useMemo(
