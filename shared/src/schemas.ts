@@ -92,9 +92,9 @@ export const AgentStateSchema = z.object({
         outputTokens: z.number().optional(),
         cacheCreationInputTokens: z.number().optional(),
         cacheReadInputTokens: z.number().optional(),
-        totalTokens: z.number().optional(),
         updatedAt: z.number().optional()
     }).optional(),
+    contextLimitTokens: z.number().optional(),
     requests: z.record(z.string(), AgentStateRequestSchema).nullish(),
     completedRequests: z.record(z.string(), AgentStateCompletedRequestSchema).nullish()
 })

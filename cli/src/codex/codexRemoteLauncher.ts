@@ -19,7 +19,7 @@ import { AppServerEventConverter } from './utils/appServerEventConverter';
 import { registerAppServerPermissionHandlers } from './utils/appServerPermissionAdapter';
 import { buildThreadStartParams, buildTurnStartParams } from './utils/appServerConfig';
 import { shouldIgnoreTerminalEvent } from './utils/terminalEventGuard';
-import { normalizeTokenUsage } from './utils/normalizeTokenUsage';
+import { extractContextLimitTokens, normalizeTokenUsage } from './utils/normalizeTokenUsage';
 import { convertCodexEvent } from './utils/codexEventConverter';
 import { parseSpecialCommand } from '@/parsers/specialCommands';
 import {
@@ -157,6 +157,10 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
 
         const asString = (value: unknown): string | null => {
             return typeof value === 'string' && value.length > 0 ? value : null;
+        };
+
+        const asBoolean = (value: unknown): boolean | null => {
+            return typeof value === 'boolean' ? value : null;
         };
 
         const buildMcpToolName = (server: unknown, tool: unknown): string | null => {
@@ -421,16 +425,27 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
                 }
             }
             if (msgType === 'token_count') {
-                const usage = normalizeTokenUsage(asRecord(msg.info) ?? msg);
-                if (usage) {
+                const info = asRecord(msg.info) ?? msg;
+                const usage = normalizeTokenUsage(info);
+                const contextLimitTokens = extractContextLimitTokens(info);
+                if (usage || contextLimitTokens !== null) {
                     session.client.updateAgentState((currentState) => ({
                         ...(currentState ?? {}),
-                        tokenUsage: {
-                            ...(currentState?.tokenUsage ?? {}),
-                            ...usage
-                        }
+                        ...(contextLimitTokens !== null ? { contextLimitTokens } : {}),
+                        tokenUsage: usage
+                            ? {
+                                ...(currentState?.tokenUsage ?? {}),
+                                ...usage
+                            }
+                            : currentState?.tokenUsage
                     }));
                 }
+            }
+            if (msgType === 'context_compacted' || msgType === 'thread_compacted') {
+                session.client.updateAgentState((currentState) => {
+                    const { tokenUsage, ...rest } = currentState ?? {};
+                    return { ...rest };
+                });
             }
             if (msgType === 'patch_apply_begin') {
                 const callId = asString(msg.call_id ?? msg.callId);
@@ -496,6 +511,19 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
                     });
                 }
             }
+            if (msgType === 'tool-call') {
+                const callId = asString(msg.call_id ?? msg.callId);
+                const name = asString(msg.name);
+                if (callId && name) {
+                    session.sendCodexMessage({
+                        type: 'tool-call',
+                        name,
+                        callId,
+                        input: msg.input ?? msg.arguments ?? {},
+                        id: randomUUID()
+                    });
+                }
+            }
             if (msgType === 'mcp_tool_call_end') {
                 const callId = asString(msg.call_id ?? msg.callId);
                 const rawResult = msg.result;
@@ -517,6 +545,18 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
                         callId,
                         output,
                         is_error: isError,
+                        id: randomUUID()
+                    });
+                }
+            }
+            if (msgType === 'tool-call-result') {
+                const callId = asString(msg.call_id ?? msg.callId);
+                if (callId) {
+                    session.sendCodexMessage({
+                        type: 'tool-call-result',
+                        callId,
+                        output: msg.output,
+                        is_error: asBoolean(msg.is_error ?? msg.isError) ?? false,
                         id: randomUUID()
                     });
                 }
@@ -546,6 +586,25 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
             mcpClient.setPermissionHandler(permissionHandler);
             mcpClient.setHandler((msg) => {
                 const eventRecord = asRecord(msg) ?? { type: undefined };
+                const rawType = asString(eventRecord.type);
+                if (rawType === 'context_compacted') {
+                    session.client.updateAgentState((currentState) => {
+                        const { tokenUsage, ...rest } = currentState ?? {};
+                        return { ...rest };
+                    });
+                    return;
+                }
+                if (rawType === 'event_msg') {
+                    const payload = asRecord(eventRecord.payload);
+                    const payloadType = asString(payload?.type);
+                    if (payloadType === 'context_compacted') {
+                        session.client.updateAgentState((currentState) => {
+                            const { tokenUsage, ...rest } = currentState ?? {};
+                            return { ...rest };
+                        });
+                        return;
+                    }
+                }
                 const converted = convertCodexEvent(eventRecord);
                 if (converted?.sessionId) {
                     session.onSessionFound(converted.sessionId);
@@ -555,11 +614,14 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
                 }
                 if (converted?.message) {
                     if (converted.message.type === 'token_count') {
-                        const usage = normalizeTokenUsage(converted.message.info);
-                        if (usage) {
+                        const info = converted.message.info;
+                        const usage = normalizeTokenUsage(info);
+                        const contextLimitTokens = extractContextLimitTokens(info);
+                        if (usage || contextLimitTokens !== null) {
                             session.client.updateAgentState((currentState) => ({
-                                ...currentState,
-                                tokenUsage: usage
+                                ...(currentState ?? {}),
+                                ...(contextLimitTokens !== null ? { contextLimitTokens } : {}),
+                                tokenUsage: usage ?? currentState?.tokenUsage
                             }));
                         }
                     } else {

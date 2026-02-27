@@ -102,6 +102,24 @@ function extractTextFromContent(value: unknown): string | null {
     return chunks.join('');
 }
 
+function parseFunctionArguments(value: unknown): unknown {
+    if (typeof value !== 'string') {
+        return value;
+    }
+    const trimmed = value.trim();
+    if (!trimmed) {
+        return value;
+    }
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+        try {
+            return JSON.parse(trimmed);
+        } catch {
+            return value;
+        }
+    }
+    return value;
+}
+
 function extractItemText(item: Record<string, unknown>): string | null {
     return asString(item.text ?? item.message) ?? extractTextFromContent(item.content);
 }
@@ -211,6 +229,38 @@ export class AppServerEventConverter {
             return [];
         }
 
+        if (msgType === 'response_item') {
+            const payload = asRecord(msg.payload);
+            const payloadType = asString(payload?.type);
+            if (payload && payloadType === 'function_call') {
+                const name = asString(payload.name);
+                const callId = asString(payload.call_id ?? payload.callId ?? payload.id);
+                if (!name || !callId) {
+                    return [];
+                }
+                return [{
+                    type: 'tool-call',
+                    name,
+                    call_id: callId,
+                    input: parseFunctionArguments(payload.arguments)
+                }];
+            }
+            if (payload && payloadType === 'function_call_output') {
+                const callId = asString(payload.call_id ?? payload.callId ?? payload.id);
+                if (!callId) {
+                    return [];
+                }
+                const isError = asBoolean(payload.is_error ?? payload.isError);
+                return [{
+                    type: 'tool-call-result',
+                    call_id: callId,
+                    output: payload.output,
+                    ...(isError !== null ? { is_error: isError } : {})
+                }];
+            }
+            return [];
+        }
+
         if (msgType === 'exec_command_output_delta') {
             const itemId = asString(msg.call_id ?? msg.callId ?? msg.item_id ?? msg.itemId ?? msg.id);
             const delta = asString(msg.delta ?? msg.output ?? msg.stdout ?? msg.text);
@@ -228,6 +278,10 @@ export class AppServerEventConverter {
             return error ? [{ type: 'task_failed', error }] : [];
         }
 
+        if (msgType === 'context_compacted') {
+            return [{ type: 'context_compacted' }];
+        }
+
         if (
             msgType === 'mcp_startup_update' ||
             msgType === 'mcp_startup_complete' ||
@@ -235,7 +289,6 @@ export class AppServerEventConverter {
             msgType === 'skills_update_available' ||
             msgType === 'stream_error' ||
             msgType === 'warning' ||
-            msgType === 'context_compacted' ||
             msgType === 'terminal_interaction' ||
             msgType === 'user_message'
         ) {
@@ -253,7 +306,12 @@ export class AppServerEventConverter {
             return this.handleWrappedCodexEvent(paramsRecord) ?? events;
         }
 
-        if (method === 'account/rateLimits/updated' || method === 'turn/plan/updated' || method === 'thread/compacted') {
+        if (method === 'account/rateLimits/updated' || method === 'turn/plan/updated') {
+            return events;
+        }
+
+        if (method === 'thread/compacted') {
+            events.push({ type: 'context_compacted' });
             return events;
         }
 

@@ -4,7 +4,7 @@ import { CodexSession } from './session';
 import { createCodexSessionScanner } from './utils/codexSessionScanner';
 import { convertCodexEvent } from './utils/codexEventConverter';
 import { buildHapiMcpBridge } from './utils/buildHapiMcpBridge';
-import { normalizeTokenUsage } from './utils/normalizeTokenUsage';
+import { extractContextLimitTokens, normalizeTokenUsage } from './utils/normalizeTokenUsage';
 import { BaseLocalLauncher } from '@/modules/common/launcher/BaseLocalLauncher';
 
 export async function codexLocalLauncher(session: CodexSession): Promise<'switch' | 'exit'> {
@@ -62,6 +62,29 @@ export async function codexLocalLauncher(session: CodexSession): Promise<'switch
             session.onSessionFound(sessionId);
         },
         onEvent: (event) => {
+            if (event && typeof event === 'object') {
+                const eventType = typeof (event as Record<string, unknown>).type === 'string'
+                    ? (event as Record<string, unknown>).type as string
+                    : null;
+                if (eventType === 'context_compacted') {
+                    session.client.updateAgentState((currentState) => {
+                        const { tokenUsage, ...rest } = currentState ?? {};
+                        return { ...rest };
+                    });
+                    return;
+                }
+                if (eventType === 'event_msg') {
+                    const payload = (event as Record<string, unknown>).payload as Record<string, unknown> | null;
+                    const payloadType = payload && typeof payload.type === 'string' ? payload.type : null;
+                    if (payloadType === 'context_compacted') {
+                        session.client.updateAgentState((currentState) => {
+                            const { tokenUsage, ...rest } = currentState ?? {};
+                            return { ...rest };
+                        });
+                        return;
+                    }
+                }
+            }
             const converted = convertCodexEvent(event);
             if (converted?.sessionId) {
                 session.onSessionFound(converted.sessionId);
@@ -72,14 +95,19 @@ export async function codexLocalLauncher(session: CodexSession): Promise<'switch
             }
             if (converted?.message) {
                 if (converted.message.type === 'token_count') {
-                    const usage = normalizeTokenUsage(converted.message.info);
-                    if (usage) {
+                    const info = converted.message.info;
+                    const usage = normalizeTokenUsage(info);
+                    const contextLimitTokens = extractContextLimitTokens(info);
+                    if (usage || contextLimitTokens !== null) {
                         session.client.updateAgentState((currentState) => ({
                             ...(currentState ?? {}),
-                            tokenUsage: {
-                                ...(currentState?.tokenUsage ?? {}),
-                                ...usage
-                            }
+                            ...(contextLimitTokens !== null ? { contextLimitTokens } : {}),
+                            tokenUsage: usage
+                                ? {
+                                    ...(currentState?.tokenUsage ?? {}),
+                                    ...usage
+                                }
+                                : currentState?.tokenUsage
                         }));
                     }
                     return;

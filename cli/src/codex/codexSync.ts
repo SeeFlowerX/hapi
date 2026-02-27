@@ -12,7 +12,7 @@ import { buildMachineMetadata } from '@/agent/sessionFactory'
 import { AsyncLock } from '@/utils/lock'
 import { isWindows } from '@/utils/process'
 import { convertCodexEvent, type CodexSessionEvent } from './utils/codexEventConverter'
-import { normalizeTokenUsage } from './utils/normalizeTokenUsage'
+import { extractContextLimitTokens, normalizeTokenUsage } from './utils/normalizeTokenUsage'
 
 const CODEX_SYNC_STATE_VERSION = 1
 const MESSAGE_BATCH_SIZE = 200
@@ -431,6 +431,29 @@ async function sendCodexEvents(client: ApiSessionClient, entries: CodexSessionFi
             }
         }
 
+        const rawEvent = entry.event as Record<string, unknown> | null
+        if (rawEvent && typeof rawEvent === 'object') {
+            const rawType = typeof rawEvent.type === 'string' ? rawEvent.type : null
+            if (rawType === 'context_compacted') {
+                await client.updateAgentState((currentState) => {
+                    const { tokenUsage, ...rest } = currentState ?? {}
+                    return { ...rest }
+                })
+                continue
+            }
+            if (rawType === 'event_msg') {
+                const payload = rawEvent.payload as Record<string, unknown> | null
+                const eventType = typeof payload?.type === 'string' ? payload.type : null
+                if (eventType === 'context_compacted') {
+                    await client.updateAgentState((currentState) => {
+                        const { tokenUsage, ...rest } = currentState ?? {}
+                        return { ...rest }
+                    })
+                    continue
+                }
+            }
+        }
+
         const converted = convertCodexEvent(entry.event)
         if (!converted) {
             continue
@@ -447,19 +470,24 @@ async function sendCodexEvents(client: ApiSessionClient, entries: CodexSessionFi
             }, localId)
         }
         if (converted.message) {
-                if (converted.message.type === 'token_count') {
-                    const usage = normalizeTokenUsage(converted.message.info)
-                    if (usage) {
-                        await client.updateAgentState((currentState) => ({
-                            ...(currentState ?? {}),
-                            tokenUsage: {
+            if (converted.message.type === 'token_count') {
+                const info = converted.message.info
+                const usage = normalizeTokenUsage(info)
+                const contextLimitTokens = extractContextLimitTokens(info)
+                if (usage || contextLimitTokens !== null) {
+                    await client.updateAgentState((currentState) => ({
+                        ...(currentState ?? {}),
+                        ...(contextLimitTokens !== null ? { contextLimitTokens } : {}),
+                        tokenUsage: usage
+                            ? {
                                 ...(currentState?.tokenUsage ?? {}),
                                 ...usage
                             }
-                        }))
-                    }
-                    continue
+                            : currentState?.tokenUsage
+                    }))
                 }
+                continue
+            }
             client.sendMessageContent({
                 role: 'agent',
                 content: {

@@ -35,7 +35,6 @@ export type NormalizedTokenUsage = {
     outputTokens?: number;
     cacheCreationInputTokens?: number;
     cacheReadInputTokens?: number;
-    totalTokens?: number;
     updatedAt?: number;
 };
 
@@ -45,58 +44,42 @@ export function normalizeTokenUsage(info: Record<string, unknown> | null): Norma
     }
 
     const baseUsage = asRecord(info.tokenUsage ?? info.token_usage ?? info.usage ?? info) ?? info;
-    const totalUsage = asRecord(
-        baseUsage.total
-            ?? baseUsage.total_usage
-            ?? baseUsage.totalTokenUsage
-            ?? baseUsage.total_token_usage
-    );
     const lastUsage = asRecord(
         baseUsage.last
             ?? baseUsage.last_usage
             ?? baseUsage.lastTokenUsage
             ?? baseUsage.last_token_usage
     );
-    const hasLastUsage = Boolean(lastUsage);
-    const hasTotalUsage = Boolean(totalUsage);
-    const usage = lastUsage ?? totalUsage ?? baseUsage;
+    const usage = lastUsage ?? baseUsage;
 
-    const shouldReadDetail = hasLastUsage || !hasTotalUsage;
-
-    const inputTokens = shouldReadDetail ? pickNumber(usage, [
+    const inputTokens = pickNumber(usage, [
         'input_tokens',
         'inputTokens',
         'prompt_tokens',
         'promptTokens'
-    ]) : null;
+    ]);
 
-    const outputTokens = shouldReadDetail ? pickNumber(usage, [
+    const outputTokens = pickNumber(usage, [
         'output_tokens',
         'outputTokens',
         'completion_tokens',
         'completionTokens'
-    ]) : null;
+    ]);
 
-    const cacheCreationInputTokens = shouldReadDetail ? pickNumber(usage, [
+    const cacheCreationInputTokens = pickNumber(usage, [
         'cache_creation_input_tokens',
         'cacheCreationInputTokens',
         'cache_creation_tokens',
         'cacheCreationTokens'
-    ]) : null;
+    ]);
 
-    const cacheReadInputTokens = shouldReadDetail ? pickNumber(usage, [
+    const cacheReadInputTokens = pickNumber(usage, [
         'cache_read_input_tokens',
         'cacheReadInputTokens',
         'cache_read_tokens',
         'cacheReadTokens',
         'cached_input_tokens',
         'cachedInputTokens'
-    ]) : null;
-
-    const totalTokens = pickNumber(totalUsage ?? usage, [
-        'total_tokens',
-        'totalTokens',
-        'tokens'
     ]);
 
     const updatedAt = pickNumber(usage, [
@@ -110,8 +93,7 @@ export function normalizeTokenUsage(info: Record<string, unknown> | null): Norma
         inputTokens === null &&
         outputTokens === null &&
         cacheCreationInputTokens === null &&
-        cacheReadInputTokens === null &&
-        totalTokens === null
+        cacheReadInputTokens === null
     ) {
         return null;
     }
@@ -121,7 +103,35 @@ export function normalizeTokenUsage(info: Record<string, unknown> | null): Norma
         ...(outputTokens !== null ? { outputTokens } : {}),
         ...(cacheCreationInputTokens !== null ? { cacheCreationInputTokens } : {}),
         ...(cacheReadInputTokens !== null ? { cacheReadInputTokens } : {}),
-        ...(totalTokens !== null ? { totalTokens } : {}),
         updatedAt
     };
+}
+
+export function extractContextLimitTokens(info: Record<string, unknown> | null): number | null {
+    if (!info) {
+        return null;
+    }
+    const baseUsage = asRecord(info.tokenUsage ?? info.token_usage ?? info.usage ?? info) ?? info;
+    return (
+        pickNumber(info, [
+            'model_context_window',
+            'modelContextWindow',
+            'context_window',
+            'contextWindow',
+            'max_context_tokens',
+            'maxContextTokens',
+            'context_limit_tokens',
+            'contextLimitTokens'
+        ]) ??
+        pickNumber(baseUsage, [
+            'model_context_window',
+            'modelContextWindow',
+            'context_window',
+            'contextWindow',
+            'max_context_tokens',
+            'maxContextTokens',
+            'context_limit_tokens',
+            'contextLimitTokens'
+        ])
+    );
 }
