@@ -1,7 +1,7 @@
 import type { ApiClient } from '@/api/client'
 import type { DecryptedMessage, MessageStatus } from '@/types/api'
 import { normalizeDecryptedMessage } from '@/chat/normalize'
-import { mergeMessages } from '@/lib/messages'
+import { isUserMessage, mergeMessages } from '@/lib/messages'
 
 export type MessageWindowState = {
     sessionId: string
@@ -429,8 +429,20 @@ export function ingestIncomingMessages(sessionId: string, incoming: DecryptedMes
             return buildState(prev, { messages: trimmed, pending })
         }
         const { updates, remaining } = splitIncomingByVisibility(prev.messages, incoming)
-        const messages = applyVisibleUpdates(prev.messages, updates)
-        const pendingResult = mergeIntoPending({ ...prev, messages }, remaining)
+        let messages = applyVisibleUpdates(prev.messages, updates)
+        let pending = prev.pending
+
+        // 不在底部时：agent 消息立即显示；仅 user 消息进入 pending
+        const agentMessages = remaining.filter((msg) => !isUserMessage(msg))
+        const userMessages = remaining.filter((msg) => isUserMessage(msg))
+
+        if (agentMessages.length > 0) {
+            const mergedVisible = mergeMessages(messages, agentMessages)
+            messages = trimVisible(mergedVisible, 'append')
+            pending = filterPendingAgainstVisible(pending, messages)
+        }
+
+        const pendingResult = mergeIntoPending({ ...prev, messages, pending }, userMessages)
         return buildState(prev, {
             messages,
             pending: pendingResult.pending,
