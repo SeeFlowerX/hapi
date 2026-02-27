@@ -20,6 +20,7 @@ import { registerAppServerPermissionHandlers } from './utils/appServerPermission
 import { buildThreadStartParams, buildTurnStartParams } from './utils/appServerConfig';
 import { shouldIgnoreTerminalEvent } from './utils/terminalEventGuard';
 import { normalizeTokenUsage } from './utils/normalizeTokenUsage';
+import { convertCodexEvent } from './utils/codexEventConverter';
 import { parseSpecialCommand } from '@/parsers/specialCommands';
 import {
     RemoteLauncherBase,
@@ -542,7 +543,30 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
             mcpClient.setPermissionHandler(permissionHandler);
             mcpClient.setHandler((msg) => {
                 const eventRecord = asRecord(msg) ?? { type: undefined };
-                handleCodexEvent(eventRecord);
+                const converted = convertCodexEvent(eventRecord);
+                if (converted?.sessionId) {
+                    session.onSessionFound(converted.sessionId);
+                }
+                if (converted?.userMessage) {
+                    session.sendUserMessage(converted.userMessage);
+                }
+                if (converted?.message) {
+                    if (converted.message.type === 'token_count') {
+                        const usage = normalizeTokenUsage(converted.message.info);
+                        if (usage) {
+                            session.client.updateAgentState((currentState) => ({
+                                ...currentState,
+                                tokenUsage: usage
+                            }));
+                        }
+                    } else {
+                        session.sendCodexMessage(converted.message);
+                    }
+                }
+                const eventType = asString(eventRecord.type);
+                if (eventType !== 'response_item' && eventType !== 'event_msg' && eventType !== 'session_meta') {
+                    handleCodexEvent(eventRecord);
+                }
             });
         }
 
