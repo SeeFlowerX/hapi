@@ -331,14 +331,12 @@ export function SessionHeader(props: {
         }
         const resolvedInput = inputTokens
         const resolvedOutput = outputTokens ?? 0
-        const cacheCreation = tokenUsage.cacheCreationInputTokens ?? 0
-        const cacheRead = tokenUsage.cacheReadInputTokens ?? 0
         return {
             inputTokens: resolvedInput,
             outputTokens: resolvedOutput,
-            cacheCreation,
-            cacheRead,
-            contextSize: resolvedInput + cacheCreation + cacheRead,
+            cacheCreation: 0,
+            cacheRead: 0,
+            contextSize: resolvedInput,
             timestamp: tokenUsage.updatedAt ?? Date.now()
         }
     }, [session.agentState?.tokenUsage])

@@ -357,6 +357,7 @@ export default {
   'misc.permissionRequired': '需要权限',
   'misc.percentLeft': '剩余 {percent}%',
   'misc.percentUsed': '已用 {percent}%',
+  'misc.percentLeftWithUsage': '剩余 {percent}%（{used} used / {limit}）',
   'misc.online': '在线',
   'misc.openFile': '查看',
   'misc.openFileError': '无法打开文件',

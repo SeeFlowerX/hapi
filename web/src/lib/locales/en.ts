@@ -355,6 +355,7 @@ export default {
   'misc.permissionRequired': 'permission required',
   'misc.percentLeft': '{percent}% left',
   'misc.percentUsed': '{percent}% used',
+  'misc.percentLeftWithUsage': '{percent}% left ({used} used / {limit})',
   'misc.online': 'online',
   'misc.openFile': 'Open',
   'misc.openFileError': 'Failed to open file',

@@ -103,14 +103,25 @@ function getConnectionStatus(
 function getContextWarning(contextSize: number, maxContextSize: number, t: (key: string, params?: Record<string, string | number>) => string): { text: string; color: string } | null {
     const percentageUsed = Math.min(100, Math.max(0, (contextSize / maxContextSize) * 100))
 
-    const percent = Math.round(percentageUsed)
+    const percentUsed = Math.round(percentageUsed)
+    const percentLeft = Math.max(0, 100 - percentUsed)
+    const usedLabel = formatTokensShort(contextSize)
+    const limitLabel = formatTokensShort(maxContextSize)
+    const text = t('misc.percentLeftWithUsage', { percent: percentLeft, used: usedLabel, limit: limitLabel })
     if (percentageUsed >= 90) {
-        return { text: t('misc.percentUsed', { percent }), color: 'text-red-500' }
+        return { text, color: 'text-red-500' }
     } else if (percentageUsed >= 70) {
-        return { text: t('misc.percentUsed', { percent }), color: 'text-amber-500' }
+        return { text, color: 'text-amber-500' }
     } else {
-        return { text: t('misc.percentUsed', { percent }), color: 'text-[var(--app-hint)]' }
+        return { text, color: 'text-[var(--app-hint)]' }
     }
+}
+
+function formatTokensShort(value: number): string {
+    if (value >= 1000) {
+        return `${Math.round(value / 1000)}K`
+    }
+    return String(Math.round(value))
 }
 
 export function StatusBar(props: {
@@ -128,15 +139,18 @@ export function StatusBar(props: {
         () => getConnectionStatus(props.active, props.thinking, props.agentState, props.voiceStatus, t, locale),
         [props.active, props.thinking, props.agentState, props.voiceStatus, t, locale]
     )
+    const resolvedContextLimit = useMemo(
+        () => props.agentState?.contextLimitTokens ?? getContextBudgetTokens(props.modelMode),
+        [props.agentState?.contextLimitTokens, props.modelMode]
+    )
 
     const contextWarning = useMemo(
         () => {
             if (props.contextSize === undefined) return null
-            const maxContextSize = getContextBudgetTokens(props.modelMode)
-            if (!maxContextSize) return null
-            return getContextWarning(props.contextSize, maxContextSize, t)
+            if (!resolvedContextLimit) return null
+            return getContextWarning(props.contextSize, resolvedContextLimit, t)
         },
-        [props.contextSize, props.modelMode, t]
+        [props.contextSize, resolvedContextLimit, t]
     )
 
     const permissionMode = props.permissionMode
@@ -149,12 +163,11 @@ export function StatusBar(props: {
     const permissionModeLabel = displayPermissionMode ? getPermissionModeLabel(displayPermissionMode) : null
     const permissionModeTone = displayPermissionMode ? getPermissionModeTone(displayPermissionMode) : null
     const permissionModeColor = permissionModeTone ? PERMISSION_TONE_CLASSES[permissionModeTone] : 'text-[var(--app-hint)]'
-    const maxContextSize = useMemo(() => getContextBudgetTokens(props.modelMode), [props.modelMode])
     const usagePercent = useMemo(() => {
-        if (props.contextSize === undefined || props.contextSize === null || !maxContextSize) return null
-        const percent = Math.min(100, Math.max(0, (props.contextSize / maxContextSize) * 100))
+        if (props.contextSize === undefined || props.contextSize === null || !resolvedContextLimit) return null
+        const percent = Math.min(100, Math.max(0, (props.contextSize / resolvedContextLimit) * 100))
         return percent
-    }, [props.contextSize, maxContextSize])
+    }, [props.contextSize, resolvedContextLimit])
     const usageColor = useMemo(() => {
         if (usagePercent === null) return 'bg-[var(--app-divider)]'
         if (usagePercent >= 90) return 'bg-red-500'

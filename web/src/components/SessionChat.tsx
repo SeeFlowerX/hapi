@@ -240,9 +240,7 @@ export function SessionChat(props: {
         if (inputTokens === null) {
             return undefined
         }
-        const cacheCreation = tokenUsage.cacheCreationInputTokens ?? 0
-        const cacheRead = tokenUsage.cacheReadInputTokens ?? 0
-        return inputTokens + cacheCreation + cacheRead
+        return inputTokens
     }, [reduced.latestUsage?.contextSize, props.session.agentState?.tokenUsage])
     const reconciled = useMemo(
         () => reconcileChatBlocks(reduced.blocks, blocksByIdRef.current),

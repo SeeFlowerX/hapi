@@ -7,7 +7,7 @@ import { reduceTimeline } from '@/chat/reducerTimeline'
 
 // Calculate context size from usage data
 function calculateContextSize(usage: UsageData): number {
-    return (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0) + usage.input_tokens
+    return usage.input_tokens
 }
 
 export type LatestUsage = {
