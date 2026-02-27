@@ -356,6 +356,7 @@ export default {
   'misc.offline': '离线',
   'misc.permissionRequired': '需要权限',
   'misc.percentLeft': '剩余 {percent}%',
+  'misc.percentUsed': '已用 {percent}%',
   'misc.online': '在线',
   'misc.openFile': '查看',
   'misc.openFileError': '无法打开文件',

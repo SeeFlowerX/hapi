@@ -354,6 +354,7 @@ export default {
   'misc.offline': 'offline',
   'misc.permissionRequired': 'permission required',
   'misc.percentLeft': '{percent}% left',
+  'misc.percentUsed': '{percent}% used',
   'misc.online': 'online',
   'misc.openFile': 'Open',
   'misc.openFileError': 'Failed to open file',

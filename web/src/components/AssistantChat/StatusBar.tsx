@@ -101,16 +101,15 @@ function getConnectionStatus(
 }
 
 function getContextWarning(contextSize: number, maxContextSize: number, t: (key: string, params?: Record<string, string | number>) => string): { text: string; color: string } | null {
-    const percentageUsed = (contextSize / maxContextSize) * 100
-    const percentageRemaining = Math.max(0, 100 - percentageUsed)
+    const percentageUsed = Math.min(100, Math.max(0, (contextSize / maxContextSize) * 100))
 
-    const percent = Math.round(percentageRemaining)
-    if (percentageRemaining <= 5) {
-        return { text: t('misc.percentLeft', { percent }), color: 'text-red-500' }
-    } else if (percentageRemaining <= 10) {
-        return { text: t('misc.percentLeft', { percent }), color: 'text-amber-500' }
+    const percent = Math.round(percentageUsed)
+    if (percentageUsed >= 90) {
+        return { text: t('misc.percentUsed', { percent }), color: 'text-red-500' }
+    } else if (percentageUsed >= 70) {
+        return { text: t('misc.percentUsed', { percent }), color: 'text-amber-500' }
     } else {
-        return { text: t('misc.percentLeft', { percent }), color: 'text-[var(--app-hint)]' }
+        return { text: t('misc.percentUsed', { percent }), color: 'text-[var(--app-hint)]' }
     }
 }
 
