@@ -243,6 +243,29 @@ export function SessionHeader(props: {
         setMenuOpen((open) => !open)
     }
 
+    const handleCompact = useCallback(async () => {
+        if (!api) {
+            addToast({
+                title: t('dialog.error.default'),
+                body: t('worktree.create.unavailable.api'),
+                sessionId: session.id,
+                url: ''
+            })
+            return
+        }
+        try {
+            await api.sendMessage(session.id, '/compact')
+        } catch (error) {
+            const message = error instanceof Error ? error.message : t('dialog.error.default')
+            addToast({
+                title: t('dialog.error.default'),
+                body: message,
+                sessionId: session.id,
+                url: ''
+            })
+        }
+    }, [api, addToast, session.id, t])
+
     const handleWorktreeCopy = useCallback(() => {
         if (!worktreeBranch) return
         void (async () => {
@@ -271,6 +294,7 @@ export function SessionHeader(props: {
     const gitStatusResult = gitStatusQuery.data
     const flavor = session.metadata?.flavor ?? null
     const hasKnownFlavor = isKnownFlavor(flavor)
+    const canCompact = flavor === 'codex'
     const isGitRepo = gitStatusResult?.success === true
     const isGitLoading = gitStatusQuery.isLoading
     const gitFailed = Boolean(gitStatusQuery.error) || gitStatusResult?.success === false
@@ -537,6 +561,7 @@ export function SessionHeader(props: {
                 onActivate={handleActivate}
                 activateDisabled={activatePending || isPending || isReadOnly}
                 onStatus={() => setStatusOpen(true)}
+                onCompact={canCompact ? handleCompact : undefined}
                 onRename={() => setRenameOpen(true)}
                 onArchive={() => setArchiveOpen(true)}
                 onDelete={() => setDeleteOpen(true)}

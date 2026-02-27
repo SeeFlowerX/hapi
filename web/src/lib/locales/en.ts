@@ -126,6 +126,7 @@ export default {
   'session.action.delete': 'Delete',
   'session.action.activate': 'Activate',
   'session.action.copy': 'Copy',
+  'session.action.compact': 'Compact',
   'session.activate.already.title': 'Already active',
   'session.activate.already.body': 'This session is already active.',
 

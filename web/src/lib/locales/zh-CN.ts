@@ -126,6 +126,7 @@ export default {
   'session.action.delete': '删除',
   'session.action.activate': '激活',
   'session.action.copy': '复制',
+  'session.action.compact': '压缩',
   'session.activate.already.title': '已激活',
   'session.activate.already.body': '该会话已处于激活状态。',
 

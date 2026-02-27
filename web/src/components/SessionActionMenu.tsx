@@ -16,6 +16,7 @@ type SessionActionMenuProps = {
     onActivate?: () => void
     activateDisabled?: boolean
     onStatus?: () => void
+    onCompact?: () => void
     onRename: () => void
     onArchive: () => void
     onDelete: () => void
@@ -128,6 +129,28 @@ function ActivateIcon(props: { className?: string }) {
     )
 }
 
+function CompactIcon(props: { className?: string }) {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={props.className}
+        >
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+            <path d="M8 8h8" />
+            <path d="M8 12h8" />
+            <path d="M8 16h6" />
+        </svg>
+    )
+}
+
 type MenuPosition = {
     top: number
     left: number
@@ -143,6 +166,7 @@ export function SessionActionMenu(props: SessionActionMenuProps) {
         onActivate,
         activateDisabled,
         onStatus,
+        onCompact,
         onRename,
         onArchive,
         onDelete,
@@ -169,6 +193,11 @@ export function SessionActionMenu(props: SessionActionMenuProps) {
     const handleStatus = () => {
         onClose()
         onStatus?.()
+    }
+
+    const handleCompact = () => {
+        onClose()
+        onCompact?.()
     }
 
     const handleDelete = () => {
@@ -310,6 +339,17 @@ export function SessionActionMenu(props: SessionActionMenuProps) {
                     >
                         <StatusIcon className="text-[var(--app-hint)]" />
                         {t('session.status.title')}
+                    </button>
+                ) : null}
+                {onCompact ? (
+                    <button
+                        type="button"
+                        role="menuitem"
+                        className={`${baseItemClassName} hover:bg-[var(--app-subtle-bg)]`}
+                        onClick={handleCompact}
+                    >
+                        <CompactIcon className="text-[var(--app-hint)]" />
+                        {t('session.action.compact')}
                     </button>
                 ) : null}
                 <button
