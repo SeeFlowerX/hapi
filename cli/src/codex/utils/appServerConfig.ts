@@ -101,6 +101,7 @@ export function buildThreadStartParams(args: {
         sandbox: resolvedSandbox,
         baseInstructions,
         developerInstructions: resolvedDeveloperInstructions,
+        experimentalRawEvents: true,
         ...(Object.keys(configWithInstructions).length > 0 ? { config: configWithInstructions } : {})
     };
 
