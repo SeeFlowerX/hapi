@@ -22,6 +22,11 @@ export function TerminalView(props: {
     const containerRef = useRef<HTMLDivElement | null>(null)
     const onMountRef = useRef(props.onMount)
     const onResizeRef = useRef(props.onResize)
+    const touchStateRef = useRef<{ startY: number; scrollTop: number; active: boolean }>({
+        startY: 0,
+        scrollTop: 0,
+        active: false
+    })
 
     useEffect(() => {
         onMountRef.current = props.onMount
@@ -60,6 +65,39 @@ export function TerminalView(props: {
         terminal.loadAddon(webLinksAddon)
         terminal.loadAddon(canvasAddon)
         terminal.open(container)
+
+        const viewport = terminal.element?.querySelector('.xterm-viewport') as HTMLDivElement | null
+        const root = terminal.element
+
+        const handleTouchStart = (event: TouchEvent) => {
+            if (event.touches.length !== 1) return
+            const touch = event.touches[0]
+            touchStateRef.current = {
+                startY: touch.clientY,
+                scrollTop: viewport?.scrollTop ?? 0,
+                active: true
+            }
+        }
+
+        const handleTouchMove = (event: TouchEvent) => {
+            if (!touchStateRef.current.active || !viewport) return
+            if (event.touches.length !== 1) return
+            const touch = event.touches[0]
+            const deltaY = touchStateRef.current.startY - touch.clientY
+            viewport.scrollTop = touchStateRef.current.scrollTop + deltaY
+            event.preventDefault()
+        }
+
+        const handleTouchEnd = () => {
+            touchStateRef.current.active = false
+        }
+
+        if (root && viewport) {
+            root.addEventListener('touchstart', handleTouchStart, { passive: true })
+            root.addEventListener('touchmove', handleTouchMove, { passive: false })
+            root.addEventListener('touchend', handleTouchEnd)
+            root.addEventListener('touchcancel', handleTouchEnd)
+        }
 
         const observer = new ResizeObserver(() => {
             requestAnimationFrame(() => {
@@ -102,6 +140,12 @@ export function TerminalView(props: {
 
         // Cleanup on abort
         abortController.signal.addEventListener('abort', () => {
+            if (root && viewport) {
+                root.removeEventListener('touchstart', handleTouchStart)
+                root.removeEventListener('touchmove', handleTouchMove)
+                root.removeEventListener('touchend', handleTouchEnd)
+                root.removeEventListener('touchcancel', handleTouchEnd)
+            }
             observer.disconnect()
             fitAddon.dispose()
             webLinksAddon.dispose()
