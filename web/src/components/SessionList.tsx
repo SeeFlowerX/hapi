@@ -598,33 +598,18 @@ function DirectoryGroupRow(props: {
     menuEnabled: boolean
 }) {
     const { t } = useTranslation()
-    const { haptic, isTouch } = usePlatform()
-    const disableLongPress = !props.menuEnabled || isTouch
-
-    const longPressHandlers = useLongPress({
-        onLongPress: (point) => {
-            if (!props.menuEnabled) return
-            haptic.impact('medium')
-            props.onOpenMenu(point)
-        },
-        onClick: () => {
-            props.onToggle()
-        },
-        threshold: 500,
-        disabled: disableLongPress
-    })
+    const { isTouch } = usePlatform()
 
     return (
         <div className="group flex min-w-0 flex-1 items-center">
             <button
                 type="button"
-                {...longPressHandlers}
+                onClick={props.onToggle}
                 onContextMenu={(event) => {
-                    if (isTouch) {
-                        event.preventDefault()
-                        return
-                    }
-                    longPressHandlers.onContextMenu(event)
+                    if (!props.menuEnabled) return
+                    event.preventDefault()
+                    if (isTouch) return
+                    props.onOpenMenu({ x: event.clientX, y: event.clientY })
                 }}
                 className="flex min-w-0 flex-1 items-center gap-2 text-left transition-colors hover:bg-[var(--app-secondary-bg)]"
             >
