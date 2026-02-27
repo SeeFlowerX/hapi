@@ -255,6 +255,7 @@ export default {
   'tool.patch': '补丁',
   'tool.input': '输入',
   'tool.result': '结果',
+  'tool.resultTruncated': '已截断（{previewKb}KB）',
   'tool.questionsAnswers': '问答',
   'tool.submit': '提交',
   'tool.submitting': '提交中…',

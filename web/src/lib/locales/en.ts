@@ -253,6 +253,7 @@ export default {
   'tool.patch': 'Patch',
   'tool.input': 'Input',
   'tool.result': 'Result',
+  'tool.resultTruncated': 'Truncated ({previewKb}KB)',
   'tool.questionsAnswers': 'Questions & Answers',
   'tool.submit': 'Submit',
   'tool.submitting': 'Submitting…',

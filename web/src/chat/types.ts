@@ -46,6 +46,11 @@ export type ToolResult = {
     uuid: string
     parentUUID: string | null
     permissions?: ToolResultPermission
+    outputMeta?: {
+        truncated?: boolean
+        originalBytes?: number
+        previewBytes?: number
+    }
 }
 
 export type NormalizedAgentContent =
@@ -110,6 +115,11 @@ export type ChatToolCall = {
     completedAt: number | null
     description: string | null
     result?: unknown
+    resultMeta?: {
+        truncated?: boolean
+        originalBytes?: number
+        previewBytes?: number
+    }
     permission?: ToolPermission
 }
 

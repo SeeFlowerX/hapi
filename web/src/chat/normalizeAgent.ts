@@ -387,6 +387,7 @@ export function normalizeAgentRecord(
 
         if (data.type === 'tool-call-result' && typeof data.callId === 'string') {
             const uuid = asString(data.id) ?? messageId
+            const outputMeta = isObject(data.outputMeta) ? data.outputMeta : undefined
             return {
                 id: messageId,
                 localId,
@@ -398,6 +399,7 @@ export function normalizeAgentRecord(
                     tool_use_id: data.callId,
                     content: data.output,
                     is_error: false,
+                    ...(outputMeta ? { outputMeta } : {}),
                     uuid,
                     parentUUID: null
                 }],

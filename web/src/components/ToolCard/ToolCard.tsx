@@ -316,6 +316,10 @@ function ToolCardInner(props: ToolCardProps) {
     const isAskUserQuestion = isAskUserQuestionToolName(toolName)
     const isRequestUserInput = isRequestUserInputToolName(toolName)
     const isQuestionTool = isAskUserQuestion || isRequestUserInput
+    const resultMeta = props.block.tool.resultMeta
+    const truncatedPreviewKb = resultMeta?.truncated
+        ? Math.max(1, Math.ceil((resultMeta.previewBytes ?? 0) / 1024))
+        : null
     const showsPermissionFooter = Boolean(permission && (
         permission.status === 'pending'
         || ((permission.status === 'denied' || permission.status === 'canceled') && Boolean(permission.reason))
@@ -400,7 +404,14 @@ function ToolCardInner(props: ToolCardProps) {
                                     </div>
                                     {!isQuestionToolWithAnswers && (
                                         <div>
-                                            <div className="mb-1 text-xs font-medium text-[var(--app-hint)]">{t('tool.result')}</div>
+                                            <div className="mb-1 flex items-center gap-2 text-xs font-medium text-[var(--app-hint)]">
+                                                <span>{t('tool.result')}</span>
+                                                {truncatedPreviewKb !== null ? (
+                                                    <span className="font-normal text-[var(--app-hint)]">
+                                                        {t('tool.resultTruncated', { previewKb: truncatedPreviewKb })}
+                                                    </span>
+                                                ) : null}
+                                            </div>
                                             <ResultToolView block={props.block} metadata={props.metadata} />
                                         </div>
                                     )}
@@ -431,7 +442,14 @@ function ToolCardInner(props: ToolCardProps) {
                                     {renderToolInput(props.block)}
                                 </div>
                                 <div>
-                                    <div className="mb-1 text-xs font-medium text-[var(--app-hint)]">{t('tool.result')}</div>
+                                    <div className="mb-1 flex items-center gap-2 text-xs font-medium text-[var(--app-hint)]">
+                                        <span>{t('tool.result')}</span>
+                                        {truncatedPreviewKb !== null ? (
+                                            <span className="font-normal text-[var(--app-hint)]">
+                                                {t('tool.resultTruncated', { previewKb: truncatedPreviewKb })}
+                                            </span>
+                                        ) : null}
+                                    </div>
                                     <ResultToolView block={props.block} metadata={props.metadata} />
                                 </div>
                             </div>

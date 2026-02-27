@@ -397,7 +397,7 @@ export class ApiSessionClient extends EventEmitter {
             role: 'agent',
             content: {
                 type: 'codex',
-                data: body
+                data: truncateToolResultIfNeeded(body)
             },
             meta: {
                 sentFrom: 'cli'
@@ -624,5 +624,119 @@ export class ApiSessionClient extends EventEmitter {
         this.rpcHandlerManager.onSocketDisconnect()
         this.terminalManager.closeAll()
         this.socket.disconnect()
+    }
+}
+
+const MAX_TOOL_OUTPUT_BYTES = 32 * 1024
+
+type TruncatedToolOutput = {
+    output: unknown
+    meta: {
+        truncated: true
+        originalBytes: number
+        previewBytes: number
+    }
+}
+
+function truncateToolResultIfNeeded(body: unknown): unknown {
+    if (!body || typeof body !== 'object') {
+        return body
+    }
+
+    const record = body as Record<string, unknown>
+    if (record.type !== 'tool-call-result') {
+        return body
+    }
+
+    const output = record.output
+    const truncated = truncateToolOutput(output)
+    if (!truncated) {
+        return body
+    }
+
+    return {
+        ...record,
+        output: truncated.output,
+        outputMeta: truncated.meta
+    }
+}
+
+function truncateToolOutput(output: unknown): TruncatedToolOutput | null {
+    const originalBytes = estimateBytes(output)
+    if (originalBytes <= MAX_TOOL_OUTPUT_BYTES) {
+        return null
+    }
+
+    const truncateString = (text: string, limit: number) => {
+        const buffer = Buffer.from(text)
+        if (buffer.length <= limit) {
+            return { value: text, bytes: buffer.length }
+        }
+        return { value: buffer.subarray(0, limit).toString(), bytes: limit }
+    }
+
+    let previewBytes = Math.min(originalBytes, MAX_TOOL_OUTPUT_BYTES)
+    let truncatedOutput: unknown = output
+
+    if (typeof output === 'string') {
+        const truncated = truncateString(output, MAX_TOOL_OUTPUT_BYTES)
+        truncatedOutput = truncated.value
+        previewBytes = truncated.bytes
+    } else if (output && typeof output === 'object') {
+        const record = output as Record<string, unknown>
+        if (typeof record.content === 'string') {
+            const truncated = truncateString(record.content, MAX_TOOL_OUTPUT_BYTES)
+            truncatedOutput = { ...record, content: truncated.value }
+            previewBytes = truncated.bytes
+        } else if (Array.isArray(record.content)) {
+            let remaining = MAX_TOOL_OUTPUT_BYTES
+            const nextContent = record.content.map((entry) => {
+                if (remaining <= 0) return null
+                if (!entry || typeof entry !== 'object') {
+                    return entry
+                }
+                const entryRecord = entry as Record<string, unknown>
+                if (typeof entryRecord.text === 'string') {
+                    const truncated = truncateString(entryRecord.text, remaining)
+                    remaining -= truncated.bytes
+                    return { ...entryRecord, text: truncated.value }
+                }
+                return entry
+            }).filter((entry) => entry !== null)
+            previewBytes = MAX_TOOL_OUTPUT_BYTES - remaining
+            truncatedOutput = { ...record, content: nextContent }
+        } else {
+            try {
+                const serialized = JSON.stringify(output)
+                const truncated = truncateString(serialized, MAX_TOOL_OUTPUT_BYTES)
+                truncatedOutput = truncated.value
+                previewBytes = truncated.bytes
+            } catch {
+                const fallback = String(output)
+                const truncated = truncateString(fallback, MAX_TOOL_OUTPUT_BYTES)
+                truncatedOutput = truncated.value
+                previewBytes = truncated.bytes
+            }
+        }
+    }
+
+    return {
+        output: truncatedOutput,
+        meta: {
+            truncated: true,
+            originalBytes,
+            previewBytes
+        }
+    }
+}
+
+function estimateBytes(value: unknown): number {
+    if (typeof value === 'string') {
+        return Buffer.byteLength(value)
+    }
+    try {
+        return Buffer.byteLength(JSON.stringify(value))
+    } catch {
+        return Buffer.byteLength(String(value))
     }
 }

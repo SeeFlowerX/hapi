@@ -223,6 +223,9 @@ export function reduceTimeline(
                     })
 
                     block.tool.result = c.content
+                    if (c.outputMeta) {
+                        block.tool.resultMeta = c.outputMeta
+                    }
                     block.tool.completedAt = msg.createdAt
                     block.tool.state = c.is_error ? 'error' : 'completed'
                     continue
