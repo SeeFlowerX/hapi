@@ -4,6 +4,7 @@ export const queryKeys = {
     messages: (sessionId: string) => ['messages', sessionId] as const,
     machines: ['machines'] as const,
     gitStatus: (sessionId: string) => ['git-status', sessionId] as const,
+    gitStatusFiles: (sessionId: string) => ['git-status-files', sessionId] as const,
     gitLog: (sessionId: string, limit?: number, skip?: number) => ['git-log', sessionId, limit ?? null, skip ?? null] as const,
     gitShow: (sessionId: string, commit: string) => ['git-show', sessionId, commit] as const,
     sessionFiles: (sessionId: string, query: string) => ['session-files', sessionId, query] as const,

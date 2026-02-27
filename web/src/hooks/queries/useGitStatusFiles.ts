@@ -12,7 +12,7 @@ export function useGitStatusFiles(api: ApiClient | null, sessionId: string | nul
 } {
     const resolvedSessionId = sessionId ?? 'unknown'
     const query = useQuery({
-        queryKey: queryKeys.gitStatus(resolvedSessionId),
+        queryKey: queryKeys.gitStatusFiles(resolvedSessionId),
         queryFn: async () => {
             if (!api || !sessionId) {
                 throw new Error('Session unavailable')
