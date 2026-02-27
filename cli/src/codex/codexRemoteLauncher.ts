@@ -424,8 +424,11 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
                 const usage = normalizeTokenUsage(asRecord(msg.info) ?? msg);
                 if (usage) {
                     session.client.updateAgentState((currentState) => ({
-                        ...currentState,
-                        tokenUsage: usage
+                        ...(currentState ?? {}),
+                        tokenUsage: {
+                            ...(currentState?.tokenUsage ?? {}),
+                            ...usage
+                        }
                     }));
                 }
             }

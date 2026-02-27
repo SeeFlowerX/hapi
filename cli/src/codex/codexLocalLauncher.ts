@@ -75,8 +75,11 @@ export async function codexLocalLauncher(session: CodexSession): Promise<'switch
                     const usage = normalizeTokenUsage(converted.message.info);
                     if (usage) {
                         session.client.updateAgentState((currentState) => ({
-                            ...currentState,
-                            tokenUsage: usage
+                            ...(currentState ?? {}),
+                            tokenUsage: {
+                                ...(currentState?.tokenUsage ?? {}),
+                                ...usage
+                            }
                         }));
                     }
                     return;

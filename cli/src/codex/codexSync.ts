@@ -447,16 +447,19 @@ async function sendCodexEvents(client: ApiSessionClient, entries: CodexSessionFi
             }, localId)
         }
         if (converted.message) {
-            if (converted.message.type === 'token_count') {
-                const usage = normalizeTokenUsage(converted.message.info)
-                if (usage) {
-                    await client.updateAgentState((currentState) => ({
-                        ...currentState,
-                        tokenUsage: usage
-                    }))
+                if (converted.message.type === 'token_count') {
+                    const usage = normalizeTokenUsage(converted.message.info)
+                    if (usage) {
+                        await client.updateAgentState((currentState) => ({
+                            ...(currentState ?? {}),
+                            tokenUsage: {
+                                ...(currentState?.tokenUsage ?? {}),
+                                ...usage
+                            }
+                        }))
+                    }
+                    continue
                 }
-                continue
-            }
             client.sendMessageContent({
                 role: 'agent',
                 content: {

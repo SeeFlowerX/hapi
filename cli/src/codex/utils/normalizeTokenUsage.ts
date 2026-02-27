@@ -57,37 +57,41 @@ export function normalizeTokenUsage(info: Record<string, unknown> | null): Norma
             ?? baseUsage.lastTokenUsage
             ?? baseUsage.last_token_usage
     );
+    const hasLastUsage = Boolean(lastUsage);
+    const hasTotalUsage = Boolean(totalUsage);
     const usage = lastUsage ?? totalUsage ?? baseUsage;
 
-    const inputTokens = pickNumber(usage, [
+    const shouldReadDetail = hasLastUsage || !hasTotalUsage;
+
+    const inputTokens = shouldReadDetail ? pickNumber(usage, [
         'input_tokens',
         'inputTokens',
         'prompt_tokens',
         'promptTokens'
-    ]);
+    ]) : null;
 
-    const outputTokens = pickNumber(usage, [
+    const outputTokens = shouldReadDetail ? pickNumber(usage, [
         'output_tokens',
         'outputTokens',
         'completion_tokens',
         'completionTokens'
-    ]);
+    ]) : null;
 
-    const cacheCreationInputTokens = pickNumber(usage, [
+    const cacheCreationInputTokens = shouldReadDetail ? pickNumber(usage, [
         'cache_creation_input_tokens',
         'cacheCreationInputTokens',
         'cache_creation_tokens',
         'cacheCreationTokens'
-    ]);
+    ]) : null;
 
-    const cacheReadInputTokens = pickNumber(usage, [
+    const cacheReadInputTokens = shouldReadDetail ? pickNumber(usage, [
         'cache_read_input_tokens',
         'cacheReadInputTokens',
         'cache_read_tokens',
         'cacheReadTokens',
         'cached_input_tokens',
         'cachedInputTokens'
-    ]);
+    ]) : null;
 
     const totalTokens = pickNumber(totalUsage ?? usage, [
         'total_tokens',
