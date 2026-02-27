@@ -10,11 +10,12 @@ import {
 import { useNavigate } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import type { Machine, SessionSummary } from '@/types/api'
-import { getCodexModelLabel } from '@/lib/codexModels'
+import { getCodexModelLabel, normalizeCodexModel } from '@/lib/codexModels'
 import type { ApiClient } from '@/api/client'
 import { useLongPress } from '@/hooks/useLongPress'
 import { usePlatform } from '@/hooks/usePlatform'
 import { useSessionActions } from '@/hooks/mutations/useSessionActions'
+import { useDefaultCodexModel } from '@/hooks/useDefaultCodexModel'
 import { SessionActionMenu } from '@/components/SessionActionMenu'
 import { RenameSessionDialog } from '@/components/RenameSessionDialog'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
@@ -24,6 +25,7 @@ import { fetchLatestMessages, seedMessageWindowFromSession } from '@/lib/message
 import { queryKeys } from '@/lib/query-keys'
 import { getMachineLabel } from '@/lib/machineLabel'
 import { ReadOnlyBadge } from '@/components/ReadOnlyBadge'
+import { isCodexAutoSession } from '@/lib/codexSessionAuto'
 
 type SessionGroup = {
     directory: string
@@ -360,9 +362,10 @@ function SessionItem(props: {
     showPath?: boolean
     api: ApiClient | null
     selected?: boolean
+    resolvedDefaultCodexModel: string | null
 }) {
     const { t } = useTranslation()
-    const { session: s, onSelect, onRefresh, showPath = true, api, selected = false } = props
+    const { session: s, onSelect, onRefresh, showPath = true, api, selected = false, resolvedDefaultCodexModel } = props
     const { haptic } = usePlatform()
     const { addToast } = useToast()
     const [menuOpen, setMenuOpen] = useState(false)
@@ -522,7 +525,11 @@ function SessionItem(props: {
                     </span>
                     <span>
                         {t('session.item.modelMode')}: {s.metadata?.flavor === 'codex'
-                            ? getCodexModelLabel(s.codexModel)
+                            ? (() => {
+                                const resolved = normalizeCodexModel(s.codexModel)
+                                const fallback = isCodexAutoSession(s.id) ? null : resolvedDefaultCodexModel
+                                return getCodexModelLabel(resolved ?? fallback)
+                            })()
                             : (s.modelMode || 'default')}
                     </span>
                     {s.metadata?.worktree?.branch ? (
@@ -659,6 +666,8 @@ export function SessionList(props: {
     const { renderHeader = true, api, selectedSessionId } = props
     const { addToast } = useToast()
     const navigate = useNavigate()
+    const { defaultCodexModel } = useDefaultCodexModel()
+    const resolvedDefaultCodexModel = normalizeCodexModel(defaultCodexModel)
     const machineMap = useMemo(
         () => new Map(props.machines.map(machine => [machine.id, machine])),
         [props.machines]
@@ -897,6 +906,7 @@ export function SessionList(props: {
                                                     showPath={false}
                                                     api={api}
                                                     selected={s.id === selectedSessionId}
+                                                    resolvedDefaultCodexModel={resolvedDefaultCodexModel}
                                                 />
                                             ))}
                                         </div>
