@@ -144,12 +144,6 @@ function QuickKeyButton(props: {
         onPress(input.sequence ?? '')
     }, [modifier, onToggleModifier, onPress, input.sequence])
 
-    const handlePointerDown = useCallback((event: PointerEvent<HTMLButtonElement>) => {
-        if (event.pointerType === 'touch') {
-            event.preventDefault()
-        }
-    }, [])
-
     const longPressHandlers = useLongPress({
         onLongPress: () => {
             if (popupSequence && !modifier) {
@@ -164,7 +158,6 @@ function QuickKeyButton(props: {
         <button
             type="button"
             {...longPressHandlers}
-            onPointerDown={handlePointerDown}
             disabled={disabled}
             aria-pressed={modifier ? isActive : undefined}
             className={`flex-1 border-l border-[var(--app-border)] px-2 py-1.5 text-xs font-medium text-[var(--app-fg)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-button)] focus-visible:ring-inset disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent first:border-l-0 active:bg-[var(--app-subtle-bg)] sm:px-3 sm:text-sm ${

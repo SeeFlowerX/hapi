@@ -597,21 +597,33 @@ function DirectoryGroupRow(props: {
     onOpenMenu: (point: { x: number; y: number }) => void
     menuEnabled: boolean
 }) {
-    const { t } = useTranslation()
-    const { isTouch } = usePlatform()
+    const { haptic, isTouch } = usePlatform()
+
+    const longPressHandlers = useLongPress({
+        onLongPress: (point) => {
+            if (!props.menuEnabled) return
+            haptic.impact('medium')
+            props.onOpenMenu(point)
+        },
+        onClick: () => {
+            props.onToggle()
+        },
+        threshold: 500,
+        disabled: !props.menuEnabled
+    })
 
     return (
         <div className="group flex min-w-0 flex-1 items-center">
             <button
                 type="button"
-                onClick={props.onToggle}
+                {...longPressHandlers}
                 onContextMenu={(event) => {
                     if (!props.menuEnabled) return
                     event.preventDefault()
                     if (isTouch) return
                     props.onOpenMenu({ x: event.clientX, y: event.clientY })
                 }}
-                className="flex min-w-0 flex-1 items-center gap-2 text-left transition-colors hover:bg-[var(--app-secondary-bg)]"
+                className="flex min-w-0 flex-1 items-center gap-2 text-left transition-colors hover:bg-[var(--app-secondary-bg)] touch-pan-y"
             >
                 <ChevronIcon
                     className="h-4 w-4 text-[var(--app-hint)]"
@@ -626,40 +638,7 @@ function DirectoryGroupRow(props: {
                     </span>
                 </div>
             </button>
-            {props.menuEnabled ? (
-                <button
-                    type="button"
-                    aria-label={t('session.more')}
-                    onClick={(event) => {
-                        event.stopPropagation()
-                        props.onOpenMenu({ x: event.clientX, y: event.clientY })
-                    }}
-                    className={[
-                        'ml-1 inline-flex h-8 w-8 items-center justify-center rounded text-[var(--app-hint)] transition-colors hover:text-[var(--app-text)]',
-                        isTouch ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                    ].join(' ')}
-                >
-                    <MoreVerticalIcon className="h-4 w-4" />
-                </button>
-            ) : null}
         </div>
-    )
-}
-
-function MoreVerticalIcon(props: { className?: string }) {
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            className={props.className}
-        >
-            <circle cx="12" cy="5" r="2" />
-            <circle cx="12" cy="12" r="2" />
-            <circle cx="12" cy="19" r="2" />
-        </svg>
     )
 }
 
