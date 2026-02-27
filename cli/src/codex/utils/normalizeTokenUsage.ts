@@ -44,7 +44,20 @@ export function normalizeTokenUsage(info: Record<string, unknown> | null): Norma
         return null;
     }
 
-    const usage = asRecord(info.tokenUsage ?? info.token_usage ?? info.usage ?? info) ?? info;
+    const baseUsage = asRecord(info.tokenUsage ?? info.token_usage ?? info.usage ?? info) ?? info;
+    const totalUsage = asRecord(
+        baseUsage.total
+            ?? baseUsage.total_usage
+            ?? baseUsage.totalTokenUsage
+            ?? baseUsage.total_token_usage
+    );
+    const lastUsage = asRecord(
+        baseUsage.last
+            ?? baseUsage.last_usage
+            ?? baseUsage.lastTokenUsage
+            ?? baseUsage.last_token_usage
+    );
+    const usage = lastUsage ?? totalUsage ?? baseUsage;
 
     const inputTokens = pickNumber(usage, [
         'input_tokens',
@@ -71,10 +84,12 @@ export function normalizeTokenUsage(info: Record<string, unknown> | null): Norma
         'cache_read_input_tokens',
         'cacheReadInputTokens',
         'cache_read_tokens',
-        'cacheReadTokens'
+        'cacheReadTokens',
+        'cached_input_tokens',
+        'cachedInputTokens'
     ]);
 
-    const totalTokens = pickNumber(usage, [
+    const totalTokens = pickNumber(totalUsage ?? usage, [
         'total_tokens',
         'totalTokens',
         'tokens'
