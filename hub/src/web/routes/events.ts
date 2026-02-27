@@ -91,7 +91,15 @@ export function createEventsRoutes(
                     return stream.writeSSE({ data: JSON.stringify(formatted) })
                 },
                 sendHeartbeat: async () => {
-                    await stream.write(': heartbeat\n\n')
+                    await stream.writeSSE({
+                        data: JSON.stringify({
+                            type: 'heartbeat',
+                            namespace,
+                            data: {
+                                timestamp: Date.now()
+                            }
+                        })
+                    })
                 }
             })
 
