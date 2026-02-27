@@ -236,7 +236,7 @@ export function SessionChat(props: {
         if (!tokenUsage) {
             return undefined
         }
-        const inputTokens = tokenUsage.inputTokens ?? tokenUsage.totalTokens ?? null
+        const inputTokens = tokenUsage.inputTokens ?? null
         if (inputTokens === null) {
             return undefined
         }

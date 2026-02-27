@@ -326,11 +326,10 @@ export function SessionHeader(props: {
         }
         const inputTokens = tokenUsage.inputTokens ?? null
         const outputTokens = tokenUsage.outputTokens ?? null
-        const totalTokens = tokenUsage.totalTokens ?? null
-        if (inputTokens === null && outputTokens === null && totalTokens === null) {
+        if (inputTokens === null) {
             return null
         }
-        const resolvedInput = inputTokens ?? totalTokens ?? 0
+        const resolvedInput = inputTokens
         const resolvedOutput = outputTokens ?? 0
         const cacheCreation = tokenUsage.cacheCreationInputTokens ?? 0
         const cacheRead = tokenUsage.cacheReadInputTokens ?? 0
