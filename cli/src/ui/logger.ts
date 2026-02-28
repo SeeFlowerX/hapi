@@ -200,9 +200,22 @@ class Logger {
   }
 
   private logToFile(prefix: string, message: string, ...args: unknown[]): void {
-    const logLine = `${prefix} ${message} ${args.map(arg => 
-      typeof arg === 'string' ? arg : JSON.stringify(arg)
-    ).join(' ')}\n`
+    const formatArg = (arg: unknown): string => {
+      if (typeof arg === 'string') {
+        return arg
+      }
+      if (arg instanceof Error) {
+        const stack = arg.stack ? `\n${arg.stack}` : ''
+        return `${arg.name}: ${arg.message}${stack}`
+      }
+      try {
+        return JSON.stringify(arg)
+      } catch {
+        return String(arg)
+      }
+    }
+
+    const logLine = `${prefix} ${message} ${args.map(formatArg).join(' ')}\n`
     
     // Send to remote server if configured
     if (this.dangerouslyUnencryptedServerLoggingUrl) {

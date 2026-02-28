@@ -673,6 +673,9 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
                 clientInfo: {
                     name: 'hapi-codex-client',
                     version: '1.0.0'
+                },
+                capabilities: {
+                    experimentalApi: true
                 }
             });
         } else if (mcpClient) {
@@ -927,7 +930,11 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
                     syncSessionId();
                 }
             } catch (error) {
-                logger.warn('Error in codex session:', error);
+                const errorDetails = error instanceof Error
+                    ? { name: error.name, message: error.message, stack: error.stack, cause: (error as Error & { cause?: unknown }).cause }
+                    : error;
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                logger.warn('Error in codex session:', errorDetails);
                 const isAbortError = error instanceof Error && error.name === 'AbortError';
                 if (useAppServer) {
                     turnInFlight = false;
@@ -944,8 +951,9 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
                         logger.debug('[Codex] Marked session as not created after abort for proper resume');
                     }
                 } else {
-                    messageBuffer.addMessage('Process exited unexpectedly', 'status');
-                    session.sendSessionEvent({ type: 'message', message: 'Process exited unexpectedly' });
+                    const formatted = errorMessage ? `Process exited unexpectedly: ${errorMessage}` : 'Process exited unexpectedly';
+                    messageBuffer.addMessage(formatted, 'status');
+                    session.sendSessionEvent({ type: 'message', message: formatted });
                     if (useAppServer) {
                         this.currentTurnId = null;
                         this.currentThreadId = null;

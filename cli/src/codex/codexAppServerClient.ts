@@ -395,7 +395,10 @@ export class CodexAppServerClient {
         this.pending.delete(response.id);
 
         if (response.error) {
-            pending.reject(new Error(response.error.message));
+            const details = response.error.data !== undefined
+                ? ` | data=${typeof response.error.data === 'string' ? response.error.data : JSON.stringify(response.error.data)}`
+                : '';
+            pending.reject(new Error(`${response.error.message}${details}`));
             return;
         }
 
