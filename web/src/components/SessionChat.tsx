@@ -19,7 +19,9 @@ import { useSessionActions } from '@/hooks/mutations/useSessionActions'
 import { useVoiceOptional } from '@/lib/voice-context'
 import { RealtimeVoiceSession, registerSessionStore, registerVoiceHooksStore, voiceHooks } from '@/realtime'
 import { getCodexModelLabel, normalizeCodexModel } from '@/lib/codexModels'
-import { clearPendingCodexModel, getPendingCodexModel } from '@/lib/pendingCodexModel'
+import { clearPendingCodexModel, getPendingCodexModel, setPendingCodexModel } from '@/lib/pendingCodexModel'
+import { useDefaultCodexModel } from '@/hooks/useDefaultCodexModel'
+import { isCodexAutoSession, setCodexAutoSession } from '@/lib/codexSessionAuto'
 import { isImageMimeType } from '@/lib/fileAttachments'
 
 export function SessionChat(props: {
@@ -55,9 +57,14 @@ export function SessionChat(props: {
         props.session.id,
         agentFlavor
     )
+    const { defaultCodexModel } = useDefaultCodexModel()
     const isCodex = agentFlavor === 'codex'
+    const resolvedDefaultCodexModel = normalizeCodexModel(defaultCodexModel)
+    const autoCodexSession = isCodex ? isCodexAutoSession(props.session.id) : false
+    const resolvedCodexModel = normalizeCodexModel(props.session.codexModel)
+    const effectiveCodexModel = resolvedCodexModel ?? (autoCodexSession ? null : resolvedDefaultCodexModel)
     const [codexModel, setCodexModelState] = useState<string | null>(() => (
-        isCodex ? normalizeCodexModel(props.session.codexModel) : null
+        isCodex ? effectiveCodexModel : null
     ))
 
     // Voice assistant integration
@@ -163,8 +170,39 @@ export function SessionChat(props: {
             setCodexModelState(null)
             return
         }
-        setCodexModelState(normalizeCodexModel(props.session.codexModel))
-    }, [props.session.id, props.session.codexModel, isCodex])
+        setCodexModelState(effectiveCodexModel)
+    }, [props.session.id, props.session.codexModel, isCodex, effectiveCodexModel])
+
+    useEffect(() => {
+        if (!isCodex || !props.session.active) return
+        if (resolvedCodexModel) return
+        if (!resolvedDefaultCodexModel || autoCodexSession) return
+        if (getPendingCodexModel(props.session.id)) return
+
+        let cancelled = false
+        void (async () => {
+            try {
+                await setCodexModel(resolvedDefaultCodexModel)
+            } catch (error) {
+                if (!cancelled) {
+                    setPendingCodexModel(props.session.id, resolvedDefaultCodexModel)
+                }
+                console.warn('Failed to apply default Codex model:', error)
+            }
+        })()
+
+        return () => {
+            cancelled = true
+        }
+    }, [
+        isCodex,
+        props.session.active,
+        props.session.id,
+        resolvedCodexModel,
+        resolvedDefaultCodexModel,
+        autoCodexSession,
+        setCodexModel
+    ])
 
     useEffect(() => {
         if (!isCodex || !props.session.active) return
@@ -319,6 +357,10 @@ export function SessionChat(props: {
         if (!isCodex) return
         const normalized = normalizeCodexModel(model)
         try {
+            setCodexAutoSession(props.session.id, normalized === null)
+            if (!normalized) {
+                clearPendingCodexModel(props.session.id)
+            }
             await setCodexModel(normalized)
             setCodexModelState(normalized)
             haptic.notification('success')
@@ -326,6 +368,9 @@ export function SessionChat(props: {
         } catch (e) {
             haptic.notification('error')
             console.error('Failed to set codex model:', e)
+            if (normalized) {
+                setPendingCodexModel(props.session.id, normalized)
+            }
         }
     }, [isCodex, setCodexModel, props.session.id, props.onRefresh, haptic])
 

@@ -23,6 +23,9 @@ import { fetchLatestMessages, seedMessageWindowFromSession } from '@/lib/message
 import { getMachineLabel } from '@/lib/machineLabel'
 import { ReadOnlyBadge } from '@/components/ReadOnlyBadge'
 import type { LatestUsage } from '@/chat/reducer'
+import { useDefaultCodexModel } from '@/hooks/useDefaultCodexModel'
+import { normalizeCodexModel } from '@/lib/codexModels'
+import { isCodexAutoSession } from '@/lib/codexSessionAuto'
 
 function getSessionTitle(session: Session): string {
     if (session.metadata?.name) {
@@ -90,6 +93,7 @@ export function SessionHeader(props: {
     const { addToast } = useToast()
     const navigate = useNavigate()
     const queryClient = useQueryClient()
+    const { defaultCodexModel } = useDefaultCodexModel()
     const { copied: worktreeCopied, copy: copyWorktree } = useCopyToClipboard()
     const { copied: codexCopied, copy: copyCodex } = useCopyToClipboard()
     const { session, api, onSessionDeleted } = props
@@ -97,6 +101,10 @@ export function SessionHeader(props: {
     const worktreeBranch = session.metadata?.worktree?.branch
     const codexSessionId = session.metadata?.codexSessionId
     const isReadOnly = Boolean(session.metadata?.readOnly)
+    const resolvedDefaultCodexModel = normalizeCodexModel(defaultCodexModel)
+    const resolvedSessionCodexModel = normalizeCodexModel(session.codexModel)
+    const effectiveCodexModel = resolvedSessionCodexModel
+        ?? (isCodexAutoSession(session.id) ? null : resolvedDefaultCodexModel)
     const { machines } = useMachines(api, true)
     const machineLabel = useMemo(() => {
         const machineId = session.metadata?.machineId ?? null
@@ -396,7 +404,7 @@ export function SessionHeader(props: {
                 sessionType: 'worktree',
                 worktreeName: trimmed,
                 agent: hasKnownFlavor ? (session.metadata?.flavor ?? undefined) : undefined,
-                model: session.codexModel ?? undefined
+                model: effectiveCodexModel ?? undefined
             })
             if (result.type !== 'success') {
                 throw new Error(result.message)

@@ -3,6 +3,8 @@ import { useTranslation, type Locale } from '@/lib/use-translation'
 import { useAppGoBack } from '@/hooks/useAppGoBack'
 import { getElevenLabsSupportedLanguages, getLanguageDisplayName, type Language } from '@/lib/languages'
 import { getFontScaleOptions, useFontScale, type FontScale } from '@/hooks/useFontScale'
+import { CODEX_MODEL_OPTIONS, normalizeCodexModel } from '@/lib/codexModels'
+import { useDefaultCodexModel } from '@/hooks/useDefaultCodexModel'
 import { PROTOCOL_VERSION } from '@hapi/protocol'
 
 const locales: { value: Locale; nativeLabel: string }[] = [
@@ -75,10 +77,13 @@ export default function SettingsPage() {
     const [isOpen, setIsOpen] = useState(false)
     const [isFontOpen, setIsFontOpen] = useState(false)
     const [isVoiceOpen, setIsVoiceOpen] = useState(false)
+    const [isCodexOpen, setIsCodexOpen] = useState(false)
     const containerRef = useRef<HTMLDivElement>(null)
     const fontContainerRef = useRef<HTMLDivElement>(null)
     const voiceContainerRef = useRef<HTMLDivElement>(null)
+    const codexContainerRef = useRef<HTMLDivElement>(null)
     const { fontScale, setFontScale } = useFontScale()
+    const { defaultCodexModel, setDefaultCodexModel } = useDefaultCodexModel()
 
     // Voice language state - read from localStorage
     const [voiceLanguage, setVoiceLanguage] = useState<string | null>(() => {
@@ -89,6 +94,8 @@ export default function SettingsPage() {
     const currentLocale = locales.find((loc) => loc.value === locale)
     const currentFontScaleLabel = fontScaleOptions.find((opt) => opt.value === fontScale)?.label ?? '100%'
     const currentVoiceLanguage = voiceLanguages.find((lang) => lang.code === voiceLanguage)
+    const codexModelValue = defaultCodexModel ?? 'auto'
+    const currentCodexModelLabel = CODEX_MODEL_OPTIONS.find((opt) => opt.value === codexModelValue)?.label ?? 'Auto'
 
     const handleLocaleChange = (newLocale: Locale) => {
         setLocale(newLocale)
@@ -110,9 +117,15 @@ export default function SettingsPage() {
         setIsVoiceOpen(false)
     }
 
+    const handleCodexModelChange = (model: string) => {
+        const normalized = normalizeCodexModel(model)
+        setDefaultCodexModel(normalized)
+        setIsCodexOpen(false)
+    }
+
     // Close dropdown when clicking outside
     useEffect(() => {
-        if (!isOpen && !isFontOpen && !isVoiceOpen) return
+        if (!isOpen && !isFontOpen && !isVoiceOpen && !isCodexOpen) return
 
         const handleClickOutside = (event: MouseEvent) => {
             if (isOpen && containerRef.current && !containerRef.current.contains(event.target as Node)) {
@@ -124,27 +137,31 @@ export default function SettingsPage() {
             if (isVoiceOpen && voiceContainerRef.current && !voiceContainerRef.current.contains(event.target as Node)) {
                 setIsVoiceOpen(false)
             }
+            if (isCodexOpen && codexContainerRef.current && !codexContainerRef.current.contains(event.target as Node)) {
+                setIsCodexOpen(false)
+            }
         }
 
         document.addEventListener('mousedown', handleClickOutside)
         return () => document.removeEventListener('mousedown', handleClickOutside)
-    }, [isOpen, isFontOpen, isVoiceOpen])
+    }, [isOpen, isFontOpen, isVoiceOpen, isCodexOpen])
 
     // Close on escape key
     useEffect(() => {
-        if (!isOpen && !isFontOpen && !isVoiceOpen) return
+        if (!isOpen && !isFontOpen && !isVoiceOpen && !isCodexOpen) return
 
         const handleEscape = (event: KeyboardEvent) => {
             if (event.key === 'Escape') {
                 setIsOpen(false)
                 setIsFontOpen(false)
                 setIsVoiceOpen(false)
+                setIsCodexOpen(false)
             }
         }
 
         document.addEventListener('keydown', handleEscape)
         return () => document.removeEventListener('keydown', handleEscape)
-    }, [isOpen, isFontOpen, isVoiceOpen])
+    }, [isOpen, isFontOpen, isVoiceOpen, isCodexOpen])
 
     return (
         <div className="flex h-full flex-col">
@@ -324,6 +341,61 @@ export default function SettingsPage() {
                                                 }`}
                                             >
                                                 <span>{displayName}</span>
+                                                {isSelected && (
+                                                    <span className="ml-2 text-[var(--app-link)]">
+                                                        <CheckIcon />
+                                                    </span>
+                                                )}
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Codex model section */}
+                    <div className="border-b border-[var(--app-divider)]">
+                        <div className="px-3 py-2 text-xs font-semibold text-[var(--app-hint)] uppercase tracking-wide">
+                            {t('settings.codex.title')}
+                        </div>
+                        <div ref={codexContainerRef} className="relative">
+                            <button
+                                type="button"
+                                onClick={() => setIsCodexOpen(!isCodexOpen)}
+                                className="flex w-full items-center justify-between px-3 py-3 text-left transition-colors hover:bg-[var(--app-subtle-bg)]"
+                                aria-expanded={isCodexOpen}
+                                aria-haspopup="listbox"
+                            >
+                                <span className="text-[var(--app-fg)]">{t('settings.codex.defaultModel')}</span>
+                                <span className="flex items-center gap-1 text-[var(--app-hint)]">
+                                    <span>{currentCodexModelLabel}</span>
+                                    <ChevronDownIcon className={`transition-transform ${isCodexOpen ? 'rotate-180' : ''}`} />
+                                </span>
+                            </button>
+
+                            {isCodexOpen && (
+                                <div
+                                    className="absolute right-3 top-full mt-1 min-w-[220px] rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] shadow-lg overflow-hidden z-50"
+                                    role="listbox"
+                                    aria-label={t('settings.codex.title')}
+                                >
+                                    {CODEX_MODEL_OPTIONS.map((option) => {
+                                        const isSelected = codexModelValue === option.value
+                                        return (
+                                            <button
+                                                key={option.value}
+                                                type="button"
+                                                role="option"
+                                                aria-selected={isSelected}
+                                                onClick={() => handleCodexModelChange(option.value)}
+                                                className={`flex items-center justify-between w-full px-3 py-2 text-base text-left transition-colors ${
+                                                    isSelected
+                                                        ? 'text-[var(--app-link)] bg-[var(--app-subtle-bg)]'
+                                                        : 'text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)]'
+                                                }`}
+                                            >
+                                                <span>{option.label}</span>
                                                 {isSelected && (
                                                     <span className="ml-2 text-[var(--app-link)]">
                                                         <CheckIcon />

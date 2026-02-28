@@ -6,6 +6,8 @@ import { useSpawnSession } from '@/hooks/mutations/useSpawnSession'
 import { useRecentPaths } from '@/hooks/useRecentPaths'
 import { normalizeCodexModel } from '@/lib/codexModels'
 import { setPendingCodexModel } from '@/lib/pendingCodexModel'
+import { useDefaultCodexModel } from '@/hooks/useDefaultCodexModel'
+import { setCodexAutoSession } from '@/lib/codexSessionAuto'
 import type { AgentType, SessionType } from './types'
 import { ActionButtons } from './ActionButtons'
 import { AgentSelector } from './AgentSelector'
@@ -35,13 +37,20 @@ export function NewSession(props: {
     const { spawnSession, isPending, error: spawnError } = useSpawnSession(props.api)
     const isFormDisabled = Boolean(isPending || props.isLoading)
     const { getRecentPaths, addRecentPath, getLastUsedMachineId, setLastUsedMachineId } = useRecentPaths()
+    const { defaultCodexModel } = useDefaultCodexModel()
+    const resolvedDefaultCodexModel = normalizeCodexModel(defaultCodexModel)
 
+    const initialAgent = loadPreferredAgent()
     const [machineId, setMachineId] = useState<string | null>(null)
     const [directory, setDirectory] = useState('')
     const [browserPath, setBrowserPath] = useState('')
     const [isBrowserOpen, setIsBrowserOpen] = useState(false)
-    const [agent, setAgent] = useState<AgentType>(loadPreferredAgent)
-    const [model, setModel] = useState('auto')
+    const [agent, setAgent] = useState<AgentType>(initialAgent)
+    const [model, setModel] = useState(() => (
+        initialAgent === 'codex'
+            ? (resolvedDefaultCodexModel ?? 'auto')
+            : 'auto'
+    ))
     const [yoloMode, setYoloMode] = useState(loadPreferredYoloMode)
     const [sessionType, setSessionType] = useState<SessionType>('simple')
     const [worktreeName, setWorktreeName] = useState('')
@@ -55,8 +64,12 @@ export function NewSession(props: {
     }, [sessionType])
 
     useEffect(() => {
+        if (agent === 'codex') {
+            setModel(resolvedDefaultCodexModel ?? 'auto')
+            return
+        }
         setModel('auto')
-    }, [agent])
+    }, [agent, resolvedDefaultCodexModel])
 
     useEffect(() => {
         savePreferredAgent(agent)
@@ -174,6 +187,11 @@ export function NewSession(props: {
                 haptic.notification('success')
                 if (agent === 'codex') {
                     const resolvedModel = normalizeCodexModel(model)
+                    if (!resolvedModel && resolvedDefaultCodexModel) {
+                        setCodexAutoSession(result.sessionId, true)
+                    } else {
+                        setCodexAutoSession(result.sessionId, false)
+                    }
                     try {
                         await props.api.setCodexModel(result.sessionId, resolvedModel)
                     } catch (error) {
