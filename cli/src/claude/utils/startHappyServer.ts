@@ -30,6 +30,8 @@ const MIME_BY_EXTENSION: Record<string, string> = {
     ".txt": "text/plain",
     ".md": "text/markdown",
     ".json": "application/json",
+    ".xml": "application/xml",
+    ".xhtml": "application/xhtml+xml",
 };
 
 function expandHomePath(value: string): string {
@@ -193,17 +195,24 @@ export async function startHappyServer(client: ApiSessionClient) {
             }
 
             const messageText = args.message?.trim() ?? '';
-            client.sendClaudeSessionMessage({
-                type: 'assistant',
+            const payload = {
+                type: 'assistant' as const,
                 uuid: randomUUID(),
                 message: {
                     content: [{
-                        type: 'text',
+                        type: 'text' as const,
                         text: messageText,
                         attachments,
                     }],
                 },
-            });
+            };
+
+            try {
+                await client.sendClaudeSessionMessageViaRest(payload);
+            } catch (error) {
+                logger.debug('[hapiMCP] Failed to send share_files message via REST; falling back to socket', error);
+                client.sendClaudeSessionMessage(payload);
+            }
 
             return {
                 content: [{

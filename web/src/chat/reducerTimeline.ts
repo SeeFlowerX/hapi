@@ -2,7 +2,7 @@ import type { ChatBlock, ToolCallBlock, ToolPermission } from '@/chat/types'
 import type { TracedMessage } from '@/chat/tracer'
 import { createCliOutputBlock, isCliOutputText, mergeCliOutputBlocks } from '@/chat/reducerCliOutput'
 import { parseMessageAsEvent } from '@/chat/reducerEvents'
-import { ensureToolBlock, extractTitleFromChangeTitleInput, isChangeTitleToolName, isShareFilesToolName, type PermissionEntry } from '@/chat/reducerTools'
+import { ensureToolBlock, extractTitleFromChangeTitleInput, isChangeTitleToolName, type PermissionEntry } from '@/chat/reducerTools'
 
 export function reduceTimeline(
     messages: TracedMessage[],
@@ -12,7 +12,6 @@ export function reduceTimeline(
         consumedGroupIds: Set<string>
         titleChangesByToolUseId: Map<string, string>
         emittedTitleChangeToolUseIds: Set<string>
-        shareFilesToolUseIds: Set<string>
     }
 ): { blocks: ChatBlock[]; toolBlocksById: Map<string, ToolCallBlock>; hasReadyEvent: boolean } {
     const blocks: ChatBlock[] = []
@@ -138,10 +137,6 @@ export function reduceTimeline(
                         }
                         continue
                     }
-                    if (isShareFilesToolName(c.name)) {
-                        continue
-                    }
-
                     const permission = context.permissionsById.get(c.id)?.permission
 
                     const block = ensureToolBlock(blocks, toolBlocksById, c.id, {
@@ -172,9 +167,6 @@ export function reduceTimeline(
                 }
 
                 if (c.type === 'tool-result') {
-                    if (context.shareFilesToolUseIds.has(c.tool_use_id)) {
-                        continue
-                    }
                     const title = context.titleChangesByToolUseId.get(c.tool_use_id) ?? null
                     if (title) {
                         if (!context.emittedTitleChangeToolUseIds.has(c.tool_use_id)) {

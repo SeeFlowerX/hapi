@@ -2,7 +2,7 @@ import type { AgentState } from '@/types/api'
 import type { ChatBlock, NormalizedMessage, UsageData } from '@/chat/types'
 import { traceMessages, type TracedMessage } from '@/chat/tracer'
 import { dedupeAgentEvents, foldApiErrorEvents } from '@/chat/reducerEvents'
-import { collectShareFilesToolIds, collectTitleChanges, collectToolIdsFromMessages, ensureToolBlock, getPermissions, isShareFilesToolName } from '@/chat/reducerTools'
+import { collectTitleChanges, collectToolIdsFromMessages, ensureToolBlock, getPermissions, isShareFilesToolName } from '@/chat/reducerTools'
 import { reduceTimeline } from '@/chat/reducerTimeline'
 
 // Calculate context size from usage data
@@ -25,7 +25,6 @@ export function reduceChatBlocks(
 ): { blocks: ChatBlock[]; hasReadyEvent: boolean; latestUsage: LatestUsage | null } {
     const permissionsById = getPermissions(agentState)
     const toolIdsInMessages = collectToolIdsFromMessages(normalized)
-    const shareFilesToolUseIds = collectShareFilesToolIds(normalized)
     const titleChangesByToolUseId = collectTitleChanges(normalized)
 
     const traced = traceMessages(normalized)
@@ -49,8 +48,7 @@ export function reduceChatBlocks(
         groups,
         consumedGroupIds,
         titleChangesByToolUseId,
-        emittedTitleChangeToolUseIds,
-        shareFilesToolUseIds
+        emittedTitleChangeToolUseIds
     }
     const rootResult = reduceTimeline(root, reducerContext)
     let hasReadyEvent = rootResult.hasReadyEvent

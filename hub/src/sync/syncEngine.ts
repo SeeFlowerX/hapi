@@ -241,6 +241,16 @@ export class SyncEngine {
         await this.messageService.sendMessage(sessionId, payload)
     }
 
+    async sendRawMessage(
+        sessionId: string,
+        payload: {
+            content: unknown
+            localId?: string | null
+        }
+    ): Promise<void> {
+        await this.messageService.sendRawMessage(sessionId, payload)
+    }
+
     async approvePermission(
         sessionId: string,
         requestId: string,

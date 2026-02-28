@@ -129,19 +129,12 @@ export function ensureToolBlock(
 
 export function collectToolIdsFromMessages(messages: NormalizedMessage[]): Set<string> {
     const ids = new Set<string>()
-    const shareFilesToolIds = collectShareFilesToolIds(messages)
     for (const msg of messages) {
         if (msg.role !== 'agent') continue
         for (const content of msg.content) {
             if (content.type === 'tool-call') {
-                if (shareFilesToolIds.has(content.id)) {
-                    continue
-                }
                 ids.add(content.id)
             } else if (content.type === 'tool-result') {
-                if (shareFilesToolIds.has(content.tool_use_id)) {
-                    continue
-                }
                 ids.add(content.tool_use_id)
             }
         }

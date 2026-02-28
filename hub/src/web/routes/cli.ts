@@ -29,6 +29,11 @@ const getMessagesQuerySchema = z.object({
     limit: z.coerce.number().int().min(1).max(200).optional()
 })
 
+const postMessageSchema = z.object({
+    message: z.unknown(),
+    localId: z.string().min(1).optional()
+})
+
 type CliEnv = {
     Variables: {
         namespace: string
@@ -167,6 +172,43 @@ export function createCliRoutes(getSyncEngine: () => SyncEngine | null): Hono<Cl
         const limit = parsed.data.limit ?? 200
         const messages = engine.getMessagesAfter(resolved.sessionId, { afterSeq: parsed.data.afterSeq, limit })
         return c.json({ messages })
+    })
+
+    app.post('/sessions/:id/messages', async (c) => {
+        const engine = getSyncEngine()
+        if (!engine) {
+            return c.json({ error: 'Not ready' }, 503)
+        }
+        const sessionId = c.req.param('id')
+        const namespace = c.get('namespace')
+        const resolved = resolveSessionForNamespace(engine, sessionId, namespace)
+        if (!resolved.ok) {
+            return c.json({ error: resolved.error }, resolved.status)
+        }
+
+        const json = await c.req.json().catch(() => null)
+        const parsed = postMessageSchema.safeParse(json)
+        if (!parsed.success) {
+            return c.json({ error: 'Invalid body' }, 400)
+        }
+
+        const raw = parsed.data.message
+        const content = typeof raw === 'string'
+            ? (() => {
+                try {
+                    return JSON.parse(raw) as unknown
+                } catch {
+                    return raw
+                }
+            })()
+            : raw
+
+        await engine.sendRawMessage(resolved.sessionId, {
+            content,
+            localId: parsed.data.localId
+        })
+
+        return c.json({ ok: true })
     })
 
     app.post('/machines', async (c) => {

@@ -2,6 +2,7 @@ import type { AttachmentMetadata, DecryptedMessage } from '@hapi/protocol/types'
 import type { Server } from 'socket.io'
 import type { Store } from '../store'
 import { EventPublisher } from './eventPublisher'
+import { extractTodoWriteTodosFromMessageContent } from './todos'
 
 export class MessageService {
     constructor(
@@ -104,6 +105,58 @@ export class MessageService {
                 }
             }
         }
+        this.io.of('/cli').to(`session:${sessionId}`).emit('update', update)
+
+        this.publisher.emit({
+            type: 'message-received',
+            sessionId,
+            message: {
+                id: msg.id,
+                seq: msg.seq,
+                localId: msg.localId,
+                content: msg.content,
+                createdAt: msg.createdAt
+            }
+        })
+    }
+
+    async sendRawMessage(
+        sessionId: string,
+        payload: {
+            content: unknown
+            localId?: string | null
+        }
+    ): Promise<void> {
+        const msg = this.store.messages.addMessage(sessionId, payload.content, payload.localId ?? undefined)
+        const todos = extractTodoWriteTodosFromMessageContent(payload.content)
+
+        if (todos) {
+            const session = this.store.sessions.getSession(sessionId)
+            if (session) {
+                const updated = this.store.sessions.setSessionTodos(sessionId, todos, msg.createdAt, session.namespace)
+                if (updated) {
+                    this.publisher.emit({ type: 'session-updated', sessionId, data: { sid: sessionId } })
+                }
+            }
+        }
+
+        const update = {
+            id: msg.id,
+            seq: msg.seq,
+            createdAt: msg.createdAt,
+            body: {
+                t: 'new-message' as const,
+                sid: sessionId,
+                message: {
+                    id: msg.id,
+                    seq: msg.seq,
+                    createdAt: msg.createdAt,
+                    localId: msg.localId,
+                    content: msg.content
+                }
+            }
+        }
+
         this.io.of('/cli').to(`session:${sessionId}`).emit('update', update)
 
         this.publisher.emit({

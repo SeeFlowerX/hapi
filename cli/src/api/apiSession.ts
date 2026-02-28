@@ -329,11 +329,9 @@ export class ApiSessionClient extends EventEmitter {
         await this.backfillInFlight
     }
 
-    sendClaudeSessionMessage(body: RawJSONLines): void {
-        let content: MessageContent
-
+    private buildMessageContentFromClaude(body: RawJSONLines): MessageContent {
         if (body.type === 'user' && typeof body.message.content === 'string' && body.isSidechain !== true && body.isMeta !== true) {
-            content = {
+            return {
                 role: 'user',
                 content: {
                     type: 'text',
@@ -343,23 +341,42 @@ export class ApiSessionClient extends EventEmitter {
                     sentFrom: 'cli'
                 }
             }
-        } else {
-            content = {
-                role: 'agent',
-                content: {
-                    type: 'output',
-                    data: body
-                },
-                meta: {
-                    sentFrom: 'cli'
-                }
+        }
+
+        return {
+            role: 'agent',
+            content: {
+                type: 'output',
+                data: body
+            },
+            meta: {
+                sentFrom: 'cli'
             }
         }
+    }
+
+    sendClaudeSessionMessage(body: RawJSONLines): void {
+        const content = this.buildMessageContentFromClaude(body)
 
         this.socket.emit('message', {
             sid: this.sessionId,
             message: content
         })
+
+        if (body.type === 'summary' && 'summary' in body && 'leafUuid' in body) {
+            this.updateMetadata((metadata) => ({
+                ...metadata,
+                summary: {
+                    text: body.summary,
+                    updatedAt: Date.now()
+                }
+            }))
+        }
+    }
+
+    async sendClaudeSessionMessageViaRest(body: RawJSONLines): Promise<void> {
+        const content = this.buildMessageContentFromClaude(body)
+        await this.sendMessageContentViaRest(content)
 
         if (body.type === 'summary' && 'summary' in body && 'leafUuid' in body) {
             this.updateMetadata((metadata) => ({
@@ -412,6 +429,23 @@ export class ApiSessionClient extends EventEmitter {
             message: content,
             localId
         })
+    }
+
+    async sendMessageContentViaRest(content: MessageContent, localId?: string): Promise<void> {
+        await axios.post(
+            `${configuration.apiUrl}/cli/sessions/${encodeURIComponent(this.sessionId)}/messages`,
+            {
+                message: content,
+                localId: localId ?? undefined
+            },
+            {
+                headers: {
+                    Authorization: `Bearer ${this.token}`,
+                    'Content-Type': 'application/json'
+                },
+                timeout: 30_000
+            }
+        )
     }
 
     sendSessionEvent(event: {
