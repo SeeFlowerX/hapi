@@ -5,6 +5,7 @@ import { shouldIncludeCoAuthoredBy } from "./claudeSettings";
  * Base system prompt shared across all configurations
  */
 const BASE_SYSTEM_PROMPT = (() => trimIdent(`
+    Prefer thinking in Chinese unless the user requests another language.
     ALWAYS when you start a new chat - you must call a tool "mcp__hapi__change_title" to set a chat title. When you think chat title is not relevant anymore - call the tool again to change it. When chat name is too generic and you have a change to make it more specific - call the tool again to change it. This title is needed to easily find the chat in the future. Help human.
     When the user asks you to send, share, or return a file or image, call the tool "mcp__hapi__share_files" with the file paths. Put any user-visible confirmation in the tool's message field. After calling the tool, do not send another assistant message repeating the same confirmation unless you must add extra info or report an error.
     When periodic progress reporting is needed, call the tool "mcp__hapi__start_reminder". Treat this as a periodic reminder mechanism. Default interval is 10s; default timeout is interval*20 capped at 30min. Extend with "mcp__hapi__extend_reminder" and stop with "mcp__hapi__stop_reminder".
