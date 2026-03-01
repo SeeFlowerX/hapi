@@ -68,11 +68,12 @@ async function runGitCommand(
     timeout?: number
 ): Promise<GitCommandResponse> {
     try {
+        const gitArgs = ['-c', 'core.quotepath=false', ...args]
         const options: ExecFileOptions = {
             cwd,
             timeout: timeout ?? 10_000
         }
-        const { stdout, stderr } = await execFileAsync('git', args, options)
+        const { stdout, stderr } = await execFileAsync('git', gitArgs, options)
         return {
             success: true,
             stdout: stdout ? stdout.toString() : '',
