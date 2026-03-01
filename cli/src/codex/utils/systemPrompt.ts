@@ -30,6 +30,7 @@ export const REMINDER_INSTRUCTION = trimIdent(`
     Stop when done via functions.hapi__stop_reminder.
     When you receive a message starting with [HAPI_REMINDER ...], treat it as an internal instruction and do not expose the prefix.
     If a reminder tick arrives and you cannot complete the requested action (missing data, permissions, or it is infeasible), explain the reason and immediately call functions.hapi__stop_reminder to avoid useless repeats. When the task is completed or no longer needed, also stop the reminder.
+    While a reminder is active for a long task, use each tick to provide brief progress updates. If a major phase is finished, or you are blocked / need user direction, call functions.hapi__stop_reminder immediately, send a short summary, and ask the user for next steps. Do not keep the reminder running while waiting for user decisions.
     For complex or long-running tasks (multi-step builds, long downloads, or prolonged waiting), proactively suggest and start the reminder timer unless the user declines.
 `);
 
