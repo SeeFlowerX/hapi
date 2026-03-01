@@ -270,7 +270,12 @@ function CommitRow(props: {
             className="flex w-full flex-col gap-1 px-3 py-3 text-left hover:bg-[var(--app-subtle-bg)] transition-colors"
         >
             <div className="flex items-center justify-between gap-3">
-                <div className="truncate text-sm font-medium">{props.entry.message || 'No message'}</div>
+                <div
+                    className="truncate text-sm font-medium"
+                    title={props.entry.message || 'No message'}
+                >
+                    {props.entry.message || 'No message'}
+                </div>
                 <span className="shrink-0 text-xs text-[var(--app-hint)]">{shortHash}</span>
             </div>
             <div className="flex items-center justify-between gap-3 text-xs text-[var(--app-hint)]">
