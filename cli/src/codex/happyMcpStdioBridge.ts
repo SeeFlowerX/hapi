@@ -77,6 +77,9 @@ export async function runHappyMcpStdioBridge(argv: string[]): Promise<void> {
       })).min(1),
       message: z.string().optional(),
     });
+    const sendMessageInputSchema: z.ZodTypeAny = z.object({
+      content: z.string().describe('Message content to send to the user'),
+    });
     const startReminderSchema: z.ZodTypeAny = z.object({
       id: z.string().optional(),
       intervalSec: z.number().optional(),
@@ -133,6 +136,29 @@ export async function runHappyMcpStdioBridge(argv: string[]): Promise<void> {
           return {
             content: [
               { type: 'text' as const, text: `Failed to share files: ${error instanceof Error ? error.message : String(error)}` },
+            ],
+            isError: true,
+          };
+        }
+      }
+    );
+
+    server.registerTool<any, any>(
+      'send_message',
+      {
+        description: 'Send a proactive message to the user',
+        title: 'Send Message',
+        inputSchema: sendMessageInputSchema,
+      },
+      async (args: Record<string, unknown>) => {
+        try {
+          const client = await ensureHttpClient();
+          const response = await client.callTool({ name: 'send_message', arguments: args });
+          return response as any;
+        } catch (error) {
+          return {
+            content: [
+              { type: 'text' as const, text: `Failed to send message: ${error instanceof Error ? error.message : String(error)}` },
             ],
             isError: true,
           };

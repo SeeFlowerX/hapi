@@ -24,6 +24,10 @@ export const SHARE_FILES_INSTRUCTION = trimIdent(`
     When the user asks you to send, share, or return a file or image, call functions.hapi__share_files with the file paths. Put any user-visible confirmation in the tool's message field. After calling the tool, do not send another assistant message repeating the same confirmation unless you must add extra info or report an error.
 `);
 
+export const SEND_MESSAGE_INSTRUCTION = trimIdent(`
+    You may proactively send brief progress updates using functions.hapi__send_message. Keep an internal progress counter: increment it for each tool call, shell command, or reasoning cycle. When the counter reaches >=5, on the next action call functions.hapi__send_message with a concise progress summary, then reset the counter to 0. Do not include internal reasoning in those messages.
+`);
+
 export const REMINDER_INSTRUCTION = trimIdent(`
     When periodic progress reporting is needed, call functions.hapi__start_reminder. Treat this as a periodic reminder mechanism.
     Default interval is 10s; default timeout is interval*20 capped at 30min, but you can extend via functions.hapi__extend_reminder.
@@ -37,4 +41,4 @@ export const REMINDER_INSTRUCTION = trimIdent(`
 /**
  * The system prompt to inject via developer_instructions in local mode.
  */
-export const codexSystemPrompt = `${TITLE_INSTRUCTION}\n\n${SHARE_FILES_INSTRUCTION}\n\n${REMINDER_INSTRUCTION}`;
+export const codexSystemPrompt = `${TITLE_INSTRUCTION}\n\n${SHARE_FILES_INSTRUCTION}\n\n${SEND_MESSAGE_INSTRUCTION}\n\n${REMINDER_INSTRUCTION}`;

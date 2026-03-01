@@ -142,6 +142,9 @@ export async function startHappyServer(client: ApiSessionClient, options?: Happy
         })).min(1),
         message: z.string().optional(),
     });
+    const sendMessageInputSchema: z.ZodTypeAny = z.object({
+        content: z.string().describe('Message content to send to the user'),
+    });
 
     const startReminderSchema: z.ZodTypeAny = z.object({
         id: z.string().optional(),
@@ -267,6 +270,51 @@ export async function startHappyServer(client: ApiSessionClient, options?: Happy
                     type: 'text' as const,
                     text: `Failed to share files: ${message}`,
                 }],
+                isError: true,
+            };
+        }
+    });
+
+    mcp.registerTool<any, any>('send_message', {
+        description: 'Send a proactive message to the user',
+        title: 'Send Message',
+        inputSchema: sendMessageInputSchema,
+    }, async (args: { content: string }) => {
+        const messageText = args.content?.trim();
+        if (!messageText) {
+            return {
+                content: [{ type: 'text' as const, text: 'Message content is required.' }],
+                isError: true,
+            };
+        }
+
+        const payload = {
+            type: 'assistant' as const,
+            uuid: randomUUID(),
+            message: {
+                content: {
+                    type: 'text' as const,
+                    text: messageText,
+                },
+            },
+        };
+
+        try {
+            try {
+                await client.sendClaudeSessionMessageViaRest(payload);
+            } catch (error) {
+                logger.debug('[hapiMCP] Failed to send send_message via REST; falling back to socket', error);
+                client.sendClaudeSessionMessage(payload);
+            }
+
+            return {
+                content: [{ type: 'text' as const, text: 'Message sent.' }],
+                isError: false,
+            };
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            return {
+                content: [{ type: 'text' as const, text: `Failed to send message: ${message}` }],
                 isError: true,
             };
         }
@@ -399,7 +447,7 @@ export async function startHappyServer(client: ApiSessionClient, options?: Happy
 
     return {
         url: baseUrl.toString(),
-        toolNames: ['change_title', 'share_files', 'start_reminder', 'stop_reminder', 'extend_reminder'],
+        toolNames: ['change_title', 'share_files', 'send_message', 'start_reminder', 'stop_reminder', 'extend_reminder'],
         stop: () => {
             logger.debug('[hapiMCP] Stopping server');
             mcp.close();
