@@ -11,6 +11,7 @@ import { createModeChangeHandler, createRunnerLifecycle, setControlledByUser } f
 import { isPermissionModeAllowedForFlavor } from '@hapi/protocol';
 import { PermissionModeSchema } from '@hapi/protocol/schemas';
 import { formatMessageWithAttachments } from '@/utils/attachmentFormatter';
+import { ReminderTimerManager } from '@/utils/ReminderTimerManager';
 
 export { emitReadyIfIdle } from './utils/emitReadyIfIdle';
 
@@ -53,6 +54,16 @@ export async function runCodex(opts: {
     let currentPermissionMode: PermissionMode = opts.permissionMode ?? 'default';
     let currentModel: string | undefined = opts.model;
     let currentCollaborationMode: EnhancedMode['collaborationMode'];
+
+    const reminderManager = new ReminderTimerManager<EnhancedMode>({
+        getMode: () => ({
+            permissionMode: currentPermissionMode ?? 'default',
+            model: currentModel,
+            collaborationMode: currentCollaborationMode
+        }),
+        enqueueMessage: (message, mode) => messageQueue.push(message, mode),
+        isBusy: () => Boolean(sessionWrapperRef.current?.thinking) || messageQueue.size() > 0
+    });
 
     const lifecycle = createRunnerLifecycle({
         session,
@@ -164,12 +175,14 @@ export async function runCodex(opts: {
             onSessionReady: (instance) => {
                 sessionWrapperRef.current = instance;
                 syncSessionMode();
+                instance.setReminder(reminderManager);
             }
         });
     } catch (error) {
         lifecycle.markCrash(error);
         logger.debug('[codex] Loop error:', error);
     } finally {
+        reminderManager.shutdown();
         const localFailure = sessionWrapperRef.current?.localLaunchFailure;
         if (localFailure?.exitReason === 'exit') {
             lifecycle.setExitCode(1);

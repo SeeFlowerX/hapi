@@ -77,6 +77,21 @@ export async function runHappyMcpStdioBridge(argv: string[]): Promise<void> {
       })).min(1),
       message: z.string().optional(),
     });
+    const startReminderSchema: z.ZodTypeAny = z.object({
+      id: z.string().optional(),
+      intervalSec: z.number().optional(),
+      timeoutSec: z.number().optional(),
+      message: z.string(),
+      onTimeoutMessage: z.string().optional(),
+    });
+    const stopReminderSchema: z.ZodTypeAny = z.object({
+      timerId: z.string(),
+    });
+    const extendReminderSchema: z.ZodTypeAny = z.object({
+      timerId: z.string(),
+      extendSec: z.number().optional(),
+      timeoutSec: z.number().optional(),
+    });
 
     server.registerTool<any, any>(
       'change_title',
@@ -118,6 +133,75 @@ export async function runHappyMcpStdioBridge(argv: string[]): Promise<void> {
           return {
             content: [
               { type: 'text' as const, text: `Failed to share files: ${error instanceof Error ? error.message : String(error)}` },
+            ],
+            isError: true,
+          };
+        }
+      }
+    );
+
+    server.registerTool<any, any>(
+      'start_reminder',
+      {
+        description: 'Start a periodic reminder timer',
+        title: 'Start Reminder',
+        inputSchema: startReminderSchema,
+      },
+      async (args: Record<string, unknown>) => {
+        try {
+          const client = await ensureHttpClient();
+          const response = await client.callTool({ name: 'start_reminder', arguments: args });
+          return response as any;
+        } catch (error) {
+          return {
+            content: [
+              { type: 'text' as const, text: `Failed to start reminder: ${error instanceof Error ? error.message : String(error)}` },
+            ],
+            isError: true,
+          };
+        }
+      }
+    );
+
+    server.registerTool<any, any>(
+      'stop_reminder',
+      {
+        description: 'Stop a periodic reminder timer',
+        title: 'Stop Reminder',
+        inputSchema: stopReminderSchema,
+      },
+      async (args: Record<string, unknown>) => {
+        try {
+          const client = await ensureHttpClient();
+          const response = await client.callTool({ name: 'stop_reminder', arguments: args });
+          return response as any;
+        } catch (error) {
+          return {
+            content: [
+              { type: 'text' as const, text: `Failed to stop reminder: ${error instanceof Error ? error.message : String(error)}` },
+            ],
+            isError: true,
+          };
+        }
+      }
+    );
+
+    server.registerTool<any, any>(
+      'extend_reminder',
+      {
+        description: 'Extend a reminder timer timeout',
+        title: 'Extend Reminder',
+        inputSchema: extendReminderSchema,
+      },
+      async (args: Record<string, unknown>) => {
+        try {
+          const client = await ensureHttpClient();
+          const response = await client.callTool({ name: 'extend_reminder', arguments: args });
+          return response as any;
+        } catch (error) {
+          return {
+            content: [
+              { type: 'text' as const, text: `Failed to extend reminder: ${error instanceof Error ? error.message : String(error)}` },
             ],
             isError: true,
           };

@@ -2,6 +2,7 @@ import { ApiClient, ApiSessionClient } from '@/lib';
 import { MessageQueue2 } from '@/utils/MessageQueue2';
 import type { Metadata, SessionModelMode, SessionPermissionMode } from '@/api/types';
 import { logger } from '@/ui/logger';
+import type { ReminderTimerManager } from '@/utils/ReminderTimerManager';
 
 export type AgentSessionBaseOptions<Mode> = {
     api: ApiClient;
@@ -30,6 +31,7 @@ export class AgentSessionBase<Mode> {
     sessionId: string | null;
     mode: 'local' | 'remote' = 'local';
     thinking: boolean = false;
+    reminder: ReminderTimerManager<Mode> | null = null;
 
     private sessionFoundCallbacks: ((sessionId: string) => void)[] = [];
     private readonly applySessionIdToMetadata: (metadata: Metadata, sessionId: string) => Metadata;
@@ -64,6 +66,13 @@ export class AgentSessionBase<Mode> {
     onThinkingChange = (thinking: boolean) => {
         this.thinking = thinking;
         this.client.keepAlive(thinking, this.mode, this.getKeepAliveRuntime());
+        if (!thinking) {
+            this.reminder?.handleIdle();
+        }
+    };
+
+    setReminder = (reminder: ReminderTimerManager<Mode> | null): void => {
+        this.reminder = reminder;
     };
 
     onModeChange = (mode: 'local' | 'remote') => {

@@ -16,6 +16,17 @@ import { homedir } from "node:os";
 import { readFile, stat } from "node:fs/promises";
 import { validatePath } from "@/modules/common/pathSecurity";
 import type { AttachmentMetadata } from "@hapi/protocol/types";
+import type { ReminderExtendInput, ReminderStartInput, ReminderStartResult, ReminderExtendResult, ReminderStopResult } from '@/utils/ReminderTimerManager';
+
+export type ReminderController = {
+    start: (input: ReminderStartInput) => ReminderStartResult;
+    stop: (timerId: string) => ReminderStopResult;
+    extend: (input: ReminderExtendInput) => ReminderExtendResult;
+};
+
+export type HappyServerOptions = {
+    reminder?: ReminderController;
+};
 
 const MAX_PREVIEW_BYTES = 50 * 1024 * 1024;
 
@@ -90,7 +101,7 @@ async function buildAttachment(
     };
 }
 
-export async function startHappyServer(client: ApiSessionClient) {
+export async function startHappyServer(client: ApiSessionClient, options?: HappyServerOptions) {
     // Handler that sends title updates via the client
     const handler = async (title: string) => {
         logger.debug('[hapiMCP] Changing title to:', title);
@@ -130,6 +141,24 @@ export async function startHappyServer(client: ApiSessionClient) {
             title: z.string().optional(),
         })).min(1),
         message: z.string().optional(),
+    });
+
+    const startReminderSchema: z.ZodTypeAny = z.object({
+        id: z.string().optional(),
+        intervalSec: z.number().optional(),
+        timeoutSec: z.number().optional(),
+        message: z.string(),
+        onTimeoutMessage: z.string().optional(),
+    });
+
+    const stopReminderSchema: z.ZodTypeAny = z.object({
+        timerId: z.string(),
+    });
+
+    const extendReminderSchema: z.ZodTypeAny = z.object({
+        timerId: z.string(),
+        extendSec: z.number().optional(),
+        timeoutSec: z.number().optional(),
     });
 
     mcp.registerTool<any, any>('change_title', {
@@ -243,6 +272,102 @@ export async function startHappyServer(client: ApiSessionClient) {
         }
     });
 
+    mcp.registerTool<any, any>('start_reminder', {
+        description: 'Start a periodic reminder timer',
+        title: 'Start Reminder',
+        inputSchema: startReminderSchema,
+    }, async (args: ReminderStartInput) => {
+        try {
+            if (!options?.reminder) {
+                return {
+                    content: [{ type: 'text' as const, text: 'Reminder not available.' }],
+                    isError: true,
+                };
+            }
+
+            const result = options.reminder.start(args);
+            return {
+                content: [{
+                    type: 'text' as const,
+                    text: `Reminder started: timerId=${result.timerId}, nextAt=${result.nextAt}, timeoutAt=${result.timeoutAt}.`,
+                }],
+                isError: false,
+            };
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            return {
+                content: [{ type: 'text' as const, text: `Failed to start reminder: ${message}` }],
+                isError: true,
+            };
+        }
+    });
+
+    mcp.registerTool<any, any>('stop_reminder', {
+        description: 'Stop a periodic reminder timer',
+        title: 'Stop Reminder',
+        inputSchema: stopReminderSchema,
+    }, async (args: { timerId: string }) => {
+        try {
+            if (!options?.reminder) {
+                return {
+                    content: [{ type: 'text' as const, text: 'Reminder not available.' }],
+                    isError: true,
+                };
+            }
+
+            const result = options.reminder.stop(args.timerId);
+            if (!result.ok) {
+                return {
+                    content: [{ type: 'text' as const, text: result.error ?? 'Failed to stop reminder' }],
+                    isError: true,
+                };
+            }
+            return {
+                content: [{ type: 'text' as const, text: `Reminder stopped: ${args.timerId}.` }],
+                isError: false,
+            };
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            return {
+                content: [{ type: 'text' as const, text: `Failed to stop reminder: ${message}` }],
+                isError: true,
+            };
+        }
+    });
+
+    mcp.registerTool<any, any>('extend_reminder', {
+        description: 'Extend a reminder timer timeout',
+        title: 'Extend Reminder',
+        inputSchema: extendReminderSchema,
+    }, async (args: ReminderExtendInput) => {
+        try {
+            if (!options?.reminder) {
+                return {
+                    content: [{ type: 'text' as const, text: 'Reminder not available.' }],
+                    isError: true,
+                };
+            }
+
+            const result = options.reminder.extend(args);
+            if (!result.ok) {
+                return {
+                    content: [{ type: 'text' as const, text: result.error ?? 'Failed to extend reminder' }],
+                    isError: true,
+                };
+            }
+            return {
+                content: [{ type: 'text' as const, text: `Reminder extended: timeoutAt=${result.timeoutAt}.` }],
+                isError: false,
+            };
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            return {
+                content: [{ type: 'text' as const, text: `Failed to extend reminder: ${message}` }],
+                isError: true,
+            };
+        }
+    });
+
     const transport = new StreamableHTTPServerTransport({
         // NOTE: Returning session id here will result in claude
         // sdk spawn to fail with `Invalid Request: Server already initialized`
@@ -274,7 +399,7 @@ export async function startHappyServer(client: ApiSessionClient) {
 
     return {
         url: baseUrl.toString(),
-        toolNames: ['change_title', 'share_files'],
+        toolNames: ['change_title', 'share_files', 'start_reminder', 'stop_reminder', 'extend_reminder'],
         stop: () => {
             logger.debug('[hapiMCP] Stopping server');
             mcp.close();

@@ -17,6 +17,7 @@ import { createModeChangeHandler, createRunnerLifecycle, setControlledByUser } f
 import { isModelModeAllowedForFlavor, isPermissionModeAllowedForFlavor } from '@hapi/protocol';
 import { ModelModeSchema, PermissionModeSchema } from '@hapi/protocol/schemas';
 import { formatMessageWithAttachments } from '@/utils/attachmentFormatter';
+import { ReminderTimerManager } from '@/utils/ReminderTimerManager';
 
 export interface StartOptions {
     model?: string
@@ -68,10 +69,6 @@ export async function runClaude(options: StartOptions = {}): Promise<void> {
             logger.debug('[start] Failed to update session metadata:', error);
         }
     });
-
-    // Start HAPI MCP server
-    const happyServer = await startHappyServer(session);
-    logger.debug(`[START] HAPI MCP server started at ${happyServer.url}`);
 
     // Variable to track current session instance (updated via onSessionReady callback)
     const currentSessionRef: { current: Session | null } = { current: null };
@@ -149,6 +146,24 @@ export async function runClaude(options: StartOptions = {}): Promise<void> {
     let currentAppendSystemPrompt: string | undefined = undefined; // Track current append system prompt
     let currentAllowedTools: string[] | undefined = undefined; // Track current allowed tools
     let currentDisallowedTools: string[] | undefined = undefined; // Track current disallowed tools
+
+    const reminderManager = new ReminderTimerManager<EnhancedMode>({
+        getMode: () => ({
+            permissionMode: currentPermissionMode ?? 'default',
+            model: currentModelMode === 'default' ? undefined : currentModelMode,
+            fallbackModel: currentFallbackModel,
+            customSystemPrompt: currentCustomSystemPrompt,
+            appendSystemPrompt: currentAppendSystemPrompt,
+            allowedTools: currentAllowedTools,
+            disallowedTools: currentDisallowedTools
+        }),
+        enqueueMessage: (message, mode) => messageQueue.push(message, mode),
+        isBusy: () => Boolean(currentSessionRef.current?.thinking) || messageQueue.size() > 0
+    });
+
+    // Start HAPI MCP server
+    const happyServer = await startHappyServer(session, { reminder: reminderManager });
+    logger.debug(`[START] HAPI MCP server started at ${happyServer.url}`);
 
     const syncSessionModes = () => {
         const sessionInstance = currentSessionRef.current;
@@ -324,6 +339,7 @@ export async function runClaude(options: StartOptions = {}): Promise<void> {
             onSessionReady: (sessionInstance) => {
                 currentSessionRef.current = sessionInstance;
                 syncSessionModes();
+                sessionInstance.setReminder(reminderManager);
             },
             mcpServers: {
                 'hapi': {
@@ -342,6 +358,8 @@ export async function runClaude(options: StartOptions = {}): Promise<void> {
         loopFailed = true;
         lifecycle.markCrash(error);
     }
+
+    reminderManager.shutdown();
 
     const localFailure = currentSessionRef.current?.localLaunchFailure;
     if (localFailure?.exitReason === 'exit') {

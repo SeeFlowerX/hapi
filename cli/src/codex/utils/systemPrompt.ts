@@ -23,7 +23,16 @@ export const SHARE_FILES_INSTRUCTION = trimIdent(`
     When the user asks you to send, share, or return a file or image, call functions.hapi__share_files with the file paths. Put any user-visible confirmation in the tool's message field. After calling the tool, do not send another assistant message repeating the same confirmation unless you must add extra info or report an error.
 `);
 
+export const REMINDER_INSTRUCTION = trimIdent(`
+    When periodic progress reporting is needed, call functions.hapi__start_reminder. Treat this as a periodic reminder mechanism.
+    Default interval is 10s; default timeout is interval*20 capped at 30min, but you can extend via functions.hapi__extend_reminder.
+    Stop when done via functions.hapi__stop_reminder.
+    When you receive a message starting with [HAPI_REMINDER ...], treat it as an internal instruction and do not expose the prefix.
+    If a reminder tick arrives and you cannot complete the requested action (missing data, permissions, or it is infeasible), explain the reason and immediately call functions.hapi__stop_reminder to avoid useless repeats. When the task is completed or no longer needed, also stop the reminder.
+    For complex or long-running tasks (multi-step builds, long downloads, or prolonged waiting), proactively suggest and start the reminder timer unless the user declines.
+`);
+
 /**
  * The system prompt to inject via developer_instructions in local mode.
  */
-export const codexSystemPrompt = `${TITLE_INSTRUCTION}\n\n${SHARE_FILES_INSTRUCTION}`;
+export const codexSystemPrompt = `${TITLE_INSTRUCTION}\n\n${SHARE_FILES_INSTRUCTION}\n\n${REMINDER_INSTRUCTION}`;

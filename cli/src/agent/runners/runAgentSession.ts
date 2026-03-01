@@ -11,6 +11,7 @@ import { getHappyCliCommand } from '@/utils/spawnHappyCLI';
 import { registerKillSessionHandler } from '@/claude/registerKillSessionHandler';
 import { bootstrapSession } from '@/agent/sessionFactory';
 import { formatMessageWithAttachments } from '@/utils/attachmentFormatter';
+import { ReminderTimerManager } from '@/utils/ReminderTimerManager';
 
 function emitReadyIfIdle(props: {
     queueSize: () => number;
@@ -55,7 +56,14 @@ export async function runAgentSession(opts: {
 
     const permissionAdapter = new PermissionAdapter(session, backend);
 
-    const happyServer = await startHappyServer(session);
+    let thinking = false;
+    const reminderManager = new ReminderTimerManager<Record<string, never>>({
+        getMode: () => ({}),
+        enqueueMessage: (message, mode) => messageQueue.push(message, mode),
+        isBusy: () => thinking || messageQueue.size() > 0
+    });
+
+    const happyServer = await startHappyServer(session, { reminder: reminderManager });
     const bridgeCommand = getHappyCliCommand(['mcp', '--url', happyServer.url]);
     const mcpServers = [
         {
@@ -71,9 +79,16 @@ export async function runAgentSession(opts: {
         mcpServers
     });
 
-    let thinking = false;
     let shouldExit = false;
     let waitAbortController: AbortController | null = null;
+
+    const setThinking = (value: boolean) => {
+        thinking = value;
+        session.keepAlive(thinking, 'remote');
+        if (!thinking) {
+            reminderManager.handleIdle();
+        }
+    };
 
     session.keepAlive(thinking, 'remote');
     const keepAliveInterval = setInterval(() => {
@@ -88,8 +103,7 @@ export async function runAgentSession(opts: {
         logger.debug('[ACP] Abort requested');
         await backend.cancelPrompt(agentSessionId);
         await permissionAdapter.cancelAll('User aborted');
-        thinking = false;
-        session.keepAlive(thinking, 'remote');
+        setThinking(false);
         sendReady();
         if (waitAbortController) {
             waitAbortController.abort();
@@ -128,8 +142,7 @@ export async function runAgentSession(opts: {
                 text: batch.message
             }];
 
-            thinking = true;
-            session.keepAlive(thinking, 'remote');
+            setThinking(true);
 
             try {
                 await backend.prompt(agentSessionId, promptContent, (message) => {
@@ -145,8 +158,7 @@ export async function runAgentSession(opts: {
                     message: 'Agent prompt failed. Check logs for details.'
                 });
             } finally {
-                thinking = false;
-                session.keepAlive(thinking, 'remote');
+                setThinking(false);
                 await permissionAdapter.cancelAll('Prompt finished');
                 emitReadyIfIdle({
                     queueSize: () => messageQueue.size(),
@@ -158,6 +170,7 @@ export async function runAgentSession(opts: {
         }
     } finally {
         clearInterval(keepAliveInterval);
+        reminderManager.shutdown();
         await permissionAdapter.cancelAll('Session ended');
         session.sendSessionDeath();
         await session.flush();
