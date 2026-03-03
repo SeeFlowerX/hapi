@@ -1,4 +1,4 @@
-export type AgentType = 'claude' | 'codex' | 'gemini' | 'opencode'
+export type AgentType = 'claude' | 'codex' | 'cursor' | 'gemini' | 'opencode'
 export type SessionType = 'simple' | 'worktree'
 
 import { CODEX_MODEL_OPTIONS } from '@/lib/codexModels'
@@ -9,7 +9,8 @@ export const MODEL_OPTIONS: Record<AgentType, { value: string; label: string }[]
         { value: 'opus', label: 'Opus' },
         { value: 'sonnet', label: 'Sonnet' },
     ],
-    codex: CODEX_MODEL_OPTIONS,
+    codex: [...CODEX_MODEL_OPTIONS],
+    cursor: [],
     gemini: [
         { value: 'auto', label: 'Auto' },
         { value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro Preview' },
