@@ -41,6 +41,21 @@ function getSessionTitle(session: Session): string {
     return session.id.slice(0, 8)
 }
 
+function formatDateTimeSeconds(value: number | null | undefined): string {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return '-'
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return '-'
+
+    const yyyy = date.getFullYear()
+    const mm = String(date.getMonth() + 1).padStart(2, '0')
+    const dd = String(date.getDate()).padStart(2, '0')
+    const hh = String(date.getHours()).padStart(2, '0')
+    const min = String(date.getMinutes()).padStart(2, '0')
+    const ss = String(date.getSeconds()).padStart(2, '0')
+
+    return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`
+}
+
 function FilesIcon(props: { className?: string }) {
     return (
         <svg
@@ -162,7 +177,6 @@ export function SessionHeader(props: {
         enabled: Boolean(api && session.id),
         staleTime: 10_000
     })
-
     useEffect(() => {
         if (worktreeDialogOpen) {
             setWorktreeName('')
@@ -350,7 +364,7 @@ export function SessionHeader(props: {
     }, [session.agentState?.tokenUsage])
 
     const usage = props.latestUsage ?? usageFromAgent
-    const usageTimestamp = usage?.timestamp ? new Date(usage.timestamp).toLocaleString() : '-'
+    const usageTimestamp = formatDateTimeSeconds(usage?.timestamp)
 
     const handleWorktreeClick = () => {
         if (worktreeStatus === 'ready') {
