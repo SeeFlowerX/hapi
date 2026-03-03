@@ -45,6 +45,7 @@ export default {
   'sessions.filter.button': 'Filter',
   'sessions.filter.placeholder': 'Filter by path',
   'sessions.filter.clear': 'Clear',
+  'sessions.filter.activeOnly': 'Active only',
 
   // Session list
   'session.item.path': 'path',

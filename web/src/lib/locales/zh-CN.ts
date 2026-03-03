@@ -45,6 +45,7 @@ export default {
   'sessions.filter.button': '筛选',
   'sessions.filter.placeholder': '按路径筛选',
   'sessions.filter.clear': '清除',
+  'sessions.filter.activeOnly': '仅激活',
 
   // Session list
   'session.item.path': '路径',

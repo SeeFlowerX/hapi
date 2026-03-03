@@ -138,13 +138,20 @@ function SessionsPage() {
     const { sessions, isLoading, error, refetch } = useSessions(api)
     const { machines } = useMachines(api, true)
     const [filterText, setFilterText] = useState('')
+    const [activeOnly, setActiveOnly] = useState(false)
     const normalizedFilter = filterText.trim()
 
     const handleRefresh = useCallback(() => {
         void refetch()
     }, [refetch])
 
-    const projectCount = new Set(sessions.map(s => s.metadata?.worktree?.basePath ?? s.metadata?.path ?? 'Other')).size
+    const visibleSessions = useMemo(
+        () => (activeOnly ? sessions.filter((session) => session.active) : sessions),
+        [activeOnly, sessions]
+    )
+    const projectCount = new Set(
+        visibleSessions.map(s => s.metadata?.worktree?.basePath ?? s.metadata?.path ?? 'Other')
+    ).size
     const sessionMatch = matchRoute({ to: '/sessions/$sessionId', fuzzy: true })
     const selectedSessionId = sessionMatch && sessionMatch.sessionId !== 'new' ? sessionMatch.sessionId : null
     const isSessionsIndex = pathname === '/sessions' || pathname === '/sessions/'
@@ -268,7 +275,7 @@ function SessionsPage() {
                     <div className="mx-auto w-full max-w-content flex flex-col px-3 py-2">
                         <div className="flex flex-wrap items-center gap-2">
                             <div className="text-xs text-[var(--app-hint)] shrink-0">
-                                {t('sessions.count', { n: sessions.length, m: projectCount })}
+                                {t('sessions.count', { n: visibleSessions.length, m: projectCount })}
                             </div>
                             <div className="relative flex-1 min-w-[140px]">
                                 <input
@@ -286,8 +293,34 @@ function SessionsPage() {
                                     >
                                         ✕
                                     </button>
-                                ) : null}
+                                    ) : null}
                             </div>
+                            <button
+                                type="button"
+                                onClick={() => setActiveOnly((prev) => !prev)}
+                                aria-label={t('sessions.filter.activeOnly')}
+                                title={t('sessions.filter.activeOnly')}
+                                className={`p-1.5 rounded-full transition-colors ${
+                                    activeOnly
+                                        ? 'text-[var(--app-link)] bg-[var(--app-subtle-bg)]'
+                                        : 'text-[var(--app-hint)] hover:text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)]'
+                                }`}
+                            >
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="20"
+                                    height="20"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    className="h-5 w-5"
+                                >
+                                    <path d="M20 6 9 17l-5-5" />
+                                </svg>
+                            </button>
                             <div className="flex items-center gap-2 shrink-0">
                                 <button
                                     type="button"
@@ -317,7 +350,7 @@ function SessionsPage() {
                         </div>
                     ) : null}
                     <SessionList
-                        sessions={sessions}
+                        sessions={visibleSessions}
                         machines={machines}
                         selectedSessionId={selectedSessionId}
                         onSelect={(sessionId) => navigate({
