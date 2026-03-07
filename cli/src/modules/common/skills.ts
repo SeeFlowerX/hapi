@@ -21,16 +21,24 @@ function getHomeDirectory(): string {
     return process.env.HOME ?? process.env.USERPROFILE ?? homedir();
 }
 
-function getUserSkillsRoot(): string {
-    return join(getHomeDirectory(), '.agents', 'skills');
+function getUserSkillsRoots(): string[] {
+    const homeDirectory = getHomeDirectory();
+    const codexHome = process.env.CODEX_HOME ?? join(homeDirectory, '.codex');
+    return [
+        join(homeDirectory, '.agents', 'skills'),
+        join(codexHome, 'skills'),
+    ];
 }
 
 function getAdminSkillsRoot(): string {
     return join('/etc', 'codex', 'skills');
 }
 
-function getProjectSkillsRoot(directory: string): string {
-    return join(directory, '.agents', 'skills');
+function getProjectSkillsRoots(directory: string): string[] {
+    return [
+        join(directory, '.agents', 'skills'),
+        join(directory, '.codex', 'skills'),
+    ];
 }
 
 async function pathExists(path: string): Promise<boolean> {
@@ -53,12 +61,12 @@ async function listProjectSkillsRoots(workingDirectory?: string): Promise<string
 
     while (true) {
         if (await pathExists(join(currentDirectory, '.git'))) {
-            return directories.map(getProjectSkillsRoot);
+            return directories.flatMap(getProjectSkillsRoots);
         }
 
         const parentDirectory = dirname(currentDirectory);
         if (parentDirectory === currentDirectory) {
-            return [getProjectSkillsRoot(resolvedWorkingDirectory)];
+            return getProjectSkillsRoots(resolvedWorkingDirectory);
         }
 
         currentDirectory = parentDirectory;
@@ -98,22 +106,39 @@ function extractSkillSummary(skillDir: string, fileContent: string): SkillSummar
 }
 
 async function listTopLevelSkillDirs(skillsRoot: string): Promise<string[]> {
-    try {
-        const entries = await readdir(skillsRoot, { withFileTypes: true });
-        const result: string[] = [];
+    const result: string[] = [];
+
+    async function collectSkillDirs(directory: string, depth: number): Promise<void> {
+        if (depth > 3) {
+            return;
+        }
+
+        try {
+            await access(join(directory, 'SKILL.md'));
+            result.push(directory);
+            return;
+        } catch {
+            // ignore missing SKILL.md
+        }
+
+        let entries;
+        try {
+            entries = await readdir(directory, { withFileTypes: true });
+        } catch {
+            return;
+        }
 
         for (const entry of entries) {
-            if (!entry.isDirectory() || entry.name.startsWith('.')) {
+            if (!entry.isDirectory()) {
                 continue;
             }
 
-            result.push(join(skillsRoot, entry.name));
+            await collectSkillDirs(join(directory, entry.name), depth + 1);
         }
-
-        return result;
-    } catch {
-        return [];
     }
+
+    await collectSkillDirs(skillsRoot, 0);
+    return result;
 }
 
 async function readSkillsFromDirs(skillDirs: string[]): Promise<SkillSummary[]> {
@@ -132,9 +157,10 @@ async function readSkillsFromDirs(skillDirs: string[]): Promise<SkillSummary[]> 
 
 export async function listSkills(workingDirectory?: string): Promise<SkillSummary[]> {
     const projectRoots = await listProjectSkillsRoots(workingDirectory);
+    const userRoots = getUserSkillsRoots();
     const [projectSkillDirs, userSkillDirs, adminSkillDirs] = await Promise.all([
         Promise.all(projectRoots.map(async (root) => await listTopLevelSkillDirs(root))).then((dirs) => dirs.flat()),
-        listTopLevelSkillDirs(getUserSkillsRoot()),
+        Promise.all(userRoots.map(async (root) => await listTopLevelSkillDirs(root))).then((dirs) => dirs.flat()),
         listTopLevelSkillDirs(getAdminSkillsRoot()),
     ]);
 

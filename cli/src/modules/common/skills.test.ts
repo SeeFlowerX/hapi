@@ -42,22 +42,34 @@ describe('listSkills', () => {
         await expect(listSkills()).resolves.toEqual([])
     })
 
-    it('lists user skills from ~/.agents only', async () => {
-        await writeSkill(join(homeDir, '.agents', 'skills', 'amis'), 'amis', 'AMIS guide')
-
-        const skills = await listSkills()
-
-        expect(skills.map((skill) => skill.name)).toEqual(['amis'])
-    })
-
-    it('ignores legacy ~/.codex skills', async () => {
+    it('lists user skills from ~/.agents and ~/.codex', async () => {
         await writeSkill(join(homeDir, '.agents', 'skills', 'amis'), 'amis', 'AMIS guide')
         await writeSkill(join(homeDir, '.codex', 'skills', 'hello-agents'), 'helloagents', 'Main skill')
         await writeSkill(join(homeDir, '.codex', 'skills', '.system', 'skill-creator'), 'skill-creator', 'Create skills')
+        await writeSkill(join(homeDir, '.codex', 'skills', 'public', 'proxy-network-requests'), 'proxy-network-requests', 'Proxy all network requests')
 
         const skills = await listSkills()
 
-        expect(skills.map((skill) => skill.name)).toEqual(['amis'])
+        expect(skills.map((skill) => skill.name)).toEqual([
+            'amis',
+            'helloagents',
+            'proxy-network-requests',
+            'skill-creator'
+        ])
+    })
+
+    it('prefers ~/.agents skill over ~/.codex duplicate', async () => {
+        await writeSkill(join(homeDir, '.agents', 'skills', 'shared'), 'shared', 'Agents shared skill')
+        await writeSkill(join(homeDir, '.codex', 'skills', 'shared'), 'shared', 'Codex shared skill')
+
+        const skills = await listSkills()
+        const sharedSkills = skills.filter((skill) => skill.name === 'shared')
+
+        expect(sharedSkills).toHaveLength(1)
+        expect(sharedSkills[0]).toEqual({
+            name: 'shared',
+            description: 'Agents shared skill'
+        })
     })
 
     it('falls back to directory name when frontmatter is missing', async () => {
@@ -77,13 +89,23 @@ describe('listSkills', () => {
 
         await mkdir(join(repoRoot, '.git'), { recursive: true })
         await writeSkill(join(repoRoot, '.agents', 'skills', 'root-skill'), 'root-skill', 'Repo root skill')
+        await writeSkill(join(repoRoot, '.codex', 'skills', '.system', 'root-system-skill'), 'root-system-skill', 'Repo root system skill')
         await writeSkill(join(packageDir, '.agents', 'skills', 'package-skill'), 'package-skill', 'Package skill')
+        await writeSkill(join(packageDir, '.codex', 'skills', 'public', 'package-codex-skill'), 'package-codex-skill', 'Package codex skill')
         await writeSkill(join(workingDirectory, '.agents', 'skills', 'local-skill'), 'local-skill', 'Local skill')
-        await writeSkill(join(sandboxDir, '.agents', 'skills', 'outside-skill'), 'outside-skill', 'Outside repo skill')
+        await writeSkill(join(workingDirectory, '.codex', 'skills', 'local-codex-skill'), 'local-codex-skill', 'Local codex skill')
+        await writeSkill(join(sandboxDir, '.codex', 'skills', 'outside-skill'), 'outside-skill', 'Outside repo skill')
 
         const skills = await listSkills(workingDirectory)
 
-        expect(skills.map((skill) => skill.name)).toEqual(['local-skill', 'package-skill', 'root-skill'])
+        expect(skills.map((skill) => skill.name)).toEqual([
+            'local-codex-skill',
+            'local-skill',
+            'package-codex-skill',
+            'package-skill',
+            'root-skill',
+            'root-system-skill'
+        ])
     })
 
     it('uses only cwd project skills outside a git repository', async () => {
@@ -92,10 +114,12 @@ describe('listSkills', () => {
 
         await writeSkill(join(parentDirectory, '.agents', 'skills', 'parent-skill'), 'parent-skill', 'Parent skill')
         await writeSkill(join(workingDirectory, '.agents', 'skills', 'local-skill'), 'local-skill', 'Local skill')
+        await writeSkill(join(parentDirectory, '.codex', 'skills', 'parent-codex-skill'), 'parent-codex-skill', 'Parent codex skill')
+        await writeSkill(join(workingDirectory, '.codex', 'skills', 'local-codex-skill'), 'local-codex-skill', 'Local codex skill')
 
         const skills = await listSkills(workingDirectory)
 
-        expect(skills.map((skill) => skill.name)).toEqual(['local-skill'])
+        expect(skills.map((skill) => skill.name)).toEqual(['local-codex-skill', 'local-skill'])
     })
 
     it('prefers nearest project skill over parent and user duplicates', async () => {
@@ -104,8 +128,11 @@ describe('listSkills', () => {
 
         await mkdir(join(repoRoot, '.git'), { recursive: true })
         await writeSkill(join(homeDir, '.agents', 'skills', 'shared'), 'shared', 'User shared skill')
+        await writeSkill(join(homeDir, '.codex', 'skills', 'shared'), 'shared', 'User codex shared skill')
         await writeSkill(join(repoRoot, '.agents', 'skills', 'shared'), 'shared', 'Repo shared skill')
+        await writeSkill(join(repoRoot, '.codex', 'skills', 'shared'), 'shared', 'Repo codex shared skill')
         await writeSkill(join(workingDirectory, '.agents', 'skills', 'shared'), 'shared', 'Local shared skill')
+        await writeSkill(join(workingDirectory, '.codex', 'skills', 'shared'), 'shared', 'Local codex shared skill')
 
         const skills = await listSkills(workingDirectory)
         const sharedSkills = skills.filter((skill) => skill.name === 'shared')
