@@ -163,6 +163,7 @@ export default {
   'toast.copyFailed.body': '无法访问剪贴板，请手动复制。',
 
   // New session form
+  'newSession.title': '创建会话',
   'newSession.machine': '机器',
   'newSession.directory': '目录',
   'newSession.placeholder': '/path/to/project',

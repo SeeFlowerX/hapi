@@ -161,6 +161,7 @@ export default {
   'toast.copyFailed.body': 'Clipboard unavailable. Please copy manually.',
 
   // New session form
+  'newSession.title': 'Create Session',
   'newSession.machine': 'Machine',
   'newSession.directory': 'Directory',
   'newSession.placeholder': '/path/to/project',
