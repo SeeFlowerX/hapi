@@ -149,7 +149,7 @@ export type UserMessage = z.infer<typeof UserMessageSchema>
 export const AgentMessageSchema = z.object({
     role: z.literal('agent'),
     content: z.object({
-        type: z.literal('output'),
+        type: z.union([z.literal('output'), z.literal('codex')]),
         data: z.unknown()
     }),
     meta: MessageMetaSchema.optional()

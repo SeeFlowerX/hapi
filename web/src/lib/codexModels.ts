@@ -7,17 +7,22 @@ export const CODEX_MODEL_OPTIONS = [
     { value: 'gpt-5.1-codex-mini', label: 'GPT-5.1 Codex Mini' },
 ] as const
 
+export type CodexModelValue = typeof CODEX_MODEL_OPTIONS[number]['value']
+export type ConcreteCodexModelValue = Exclude<CodexModelValue, 'auto'>
+
 const CODEX_MODEL_VALUES = new Set(
     CODEX_MODEL_OPTIONS
         .map((option) => option.value)
-        .filter((value) => value !== 'auto')
+        .filter((value): value is ConcreteCodexModelValue => value !== 'auto')
 )
 
-export function normalizeCodexModel(value: string | null | undefined): string | null {
+export function normalizeCodexModel(value: string | null | undefined): ConcreteCodexModelValue | null {
     if (!value) return null
     const trimmed = value.trim()
     if (!trimmed || trimmed === 'auto') return null
-    return CODEX_MODEL_VALUES.has(trimmed) ? trimmed : null
+    return CODEX_MODEL_VALUES.has(trimmed as ConcreteCodexModelValue)
+        ? (trimmed as ConcreteCodexModelValue)
+        : null
 }
 
 export function getCodexModelLabel(value: string | null | undefined): string {

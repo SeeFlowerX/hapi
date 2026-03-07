@@ -378,7 +378,7 @@ export function createSessionsRoutes(getSyncEngine: () => SyncEngine | null): Ho
 
         const rawModel = parsed.data.model
         const model = rawModel === null ? null : rawModel.trim()
-        if (rawModel !== null && model.length === 0) {
+        if (model !== null && model.length === 0) {
             return c.json({ error: 'Invalid model' }, 400)
         }
 

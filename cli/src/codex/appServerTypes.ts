@@ -7,6 +7,10 @@ export interface InitializeParams {
         title?: string;
         version: string;
     };
+    capabilities?: {
+        experimentalApi?: boolean;
+        optOutNotificationMethods?: string[];
+    };
 }
 
 export interface InitializeResponse {

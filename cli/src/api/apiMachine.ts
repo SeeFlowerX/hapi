@@ -53,7 +53,7 @@ type MachineRpcHandlers = {
     spawnSession: (options: SpawnSessionOptions) => Promise<SpawnSessionResult>
     stopSession: (sessionId: string) => boolean
     requestShutdown: () => void
-    codexSync: (params: { mode: 'full' | 'session'; codexSessionId?: string }) => Promise<{ ok: true }>
+    codexSync: (params: { mode: 'full' | 'session'; codexSessionId?: string }) => Promise<void>
 }
 
 interface PathExistsRequest {

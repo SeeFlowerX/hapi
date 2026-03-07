@@ -106,6 +106,8 @@ export class RpcGateway {
         config: {
             permissionMode?: PermissionMode
             modelMode?: ModelMode
+            model?: string | null
+            collaborationMode?: string | null
         }
     ): Promise<unknown> {
         return await this.sessionRpc(sessionId, 'set-session-config', config)

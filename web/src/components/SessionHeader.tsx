@@ -417,7 +417,7 @@ export function SessionHeader(props: {
                 directory: baseDirectory,
                 sessionType: 'worktree',
                 worktreeName: trimmed,
-                agent: hasKnownFlavor ? (session.metadata?.flavor ?? undefined) : undefined,
+                agent: hasKnownFlavor ? flavor : undefined,
                 model: effectiveCodexModel ?? undefined
             })
             if (result.type !== 'success') {
