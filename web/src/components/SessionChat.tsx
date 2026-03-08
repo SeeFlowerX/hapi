@@ -24,6 +24,7 @@ import { findUnsupportedCodexBuiltinSlashCommand } from '@/lib/codexSlashCommand
 import { useToast } from '@/lib/toast-context'
 import { useTranslation } from '@/lib/use-translation'
 import { SessionHeader } from '@/components/SessionHeader'
+import { TeamPanel } from '@/components/TeamPanel'
 import { usePlatform } from '@/hooks/usePlatform'
 import { useSessionActions } from '@/hooks/mutations/useSessionActions'
 import { useVoiceOptional } from '@/lib/voice-context'
@@ -477,6 +478,10 @@ export function SessionChat(props: {
                 onRefresh={props.onRefresh}
                 onSessionDeleted={props.onBack}
             />
+
+            {props.session.teamState && (
+                <TeamPanel teamState={props.session.teamState} />
+            )}
 
             {sessionInactive ? (
                 <div className="px-3 pt-3">
