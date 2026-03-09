@@ -143,6 +143,15 @@ export function NewSession(props: {
         [selectedMachine]
     )
 
+    const selectedMachine = useMemo(
+        () => (machineId ? props.machines.find((machine) => machine.id === machineId) ?? null : null),
+        [machineId, props.machines]
+    )
+    const runnerSpawnError = useMemo(
+        () => formatRunnerSpawnError(selectedMachine),
+        [selectedMachine]
+    )
+
     const recentPaths = useMemo(
         () => getRecentPaths(machineId),
         [getRecentPaths, machineId]
