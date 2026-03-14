@@ -26,6 +26,7 @@ function getUserSkillsRoots(): string[] {
     const codexHome = process.env.CODEX_HOME ?? join(homeDirectory, '.codex');
     return [
         join(homeDirectory, '.agents', 'skills'),
+        join(homeDirectory, '.claude', 'skills'),
         join(codexHome, 'skills'),
     ];
 }
@@ -37,6 +38,7 @@ function getAdminSkillsRoot(): string {
 function getProjectSkillsRoots(directory: string): string[] {
     return [
         join(directory, '.agents', 'skills'),
+        join(directory, '.claude', 'skills'),
         join(directory, '.codex', 'skills'),
     ];
 }

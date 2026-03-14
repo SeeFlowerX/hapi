@@ -42,6 +42,33 @@ describe('listSkills', () => {
         await expect(listSkills()).resolves.toEqual([])
     })
 
+    it('lists user skills from ~/.agents only', async () => {
+        await writeSkill(join(homeDir, '.agents', 'skills', 'amis'), 'amis', 'AMIS guide')
+
+        const skills = await listSkills()
+
+        expect(skills.map((skill) => skill.name)).toEqual(['amis'])
+    })
+
+    it('lists user skills from ~/.claude/skills', async () => {
+        await writeSkill(join(homeDir, '.claude', 'skills', 'claude-skill'), 'claude-skill', 'Claude skill')
+
+        const skills = await listSkills()
+
+        expect(skills.map((skill) => skill.name)).toEqual(['claude-skill'])
+    })
+
+    it('merges user skills from ~/.agents and ~/.claude, preferring ~/.agents', async () => {
+        await writeSkill(join(homeDir, '.agents', 'skills', 'alpha'), 'alpha', 'Alpha from agents')
+        await writeSkill(join(homeDir, '.claude', 'skills', 'beta'), 'beta', 'Beta from claude')
+        await writeSkill(join(homeDir, '.claude', 'skills', 'alpha'), 'alpha', 'Alpha from claude')
+
+        const skills = await listSkills()
+
+        expect(skills.map((skill) => skill.name)).toEqual(['alpha', 'beta'])
+        expect(skills.find((s) => s.name === 'alpha')?.description).toBe('Alpha from agents')
+    })
+
     it('lists user skills from ~/.agents and ~/.codex', async () => {
         await writeSkill(join(homeDir, '.agents', 'skills', 'amis'), 'amis', 'AMIS guide')
         await writeSkill(join(homeDir, '.codex', 'skills', 'hello-agents'), 'helloagents', 'Main skill')
@@ -106,6 +133,33 @@ describe('listSkills', () => {
             'root-skill',
             'root-system-skill'
         ])
+    })
+
+    it('loads project skills from .claude/skills directories', async () => {
+        const repoRoot = join(sandboxDir, 'repo')
+        const workingDirectory = join(repoRoot, 'apps', 'web')
+
+        await mkdir(join(repoRoot, '.git'), { recursive: true })
+        await writeSkill(join(repoRoot, '.claude', 'skills', 'claude-root'), 'claude-root', 'Claude root skill')
+        await writeSkill(join(workingDirectory, '.claude', 'skills', 'claude-local'), 'claude-local', 'Claude local skill')
+
+        const skills = await listSkills(workingDirectory)
+
+        expect(skills.map((skill) => skill.name)).toEqual(['claude-local', 'claude-root'])
+    })
+
+    it('prefers .agents project skills over .claude project skills with same name', async () => {
+        const repoRoot = join(sandboxDir, 'repo')
+        const workingDirectory = join(repoRoot, 'apps', 'web')
+
+        await mkdir(join(repoRoot, '.git'), { recursive: true })
+        await writeSkill(join(workingDirectory, '.agents', 'skills', 'shared'), 'shared', 'From agents')
+        await writeSkill(join(workingDirectory, '.claude', 'skills', 'shared'), 'shared', 'From claude')
+
+        const skills = await listSkills(workingDirectory)
+
+        expect(skills).toHaveLength(1)
+        expect(skills[0]).toEqual({ name: 'shared', description: 'From agents' })
     })
 
     it('uses only cwd project skills outside a git repository', async () => {
