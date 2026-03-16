@@ -5,11 +5,23 @@ import { createCodexSessionScanner } from './utils/codexSessionScanner';
 import { convertCodexEvent } from './utils/codexEventConverter';
 import { buildHapiMcpBridge } from './utils/buildHapiMcpBridge';
 import { extractContextLimitTokens, normalizeTokenUsage } from './utils/normalizeTokenUsage';
+import { stripCodexCliOverrides } from './utils/codexCliOverrides';
+import { buildCodexPermissionModeCliArgs } from './utils/permissionModeConfig';
 import { BaseLocalLauncher } from '@/modules/common/launcher/BaseLocalLauncher';
 
 export async function codexLocalLauncher(session: CodexSession): Promise<'switch' | 'exit'> {
     const resumeSessionId = session.sessionId;
     let scanner: Awaited<ReturnType<typeof createCodexSessionScanner>> | null = null;
+    const permissionMode = session.getPermissionMode();
+    const managedPermissionMode = permissionMode === 'read-only' || permissionMode === 'safe-yolo' || permissionMode === 'yolo'
+        ? permissionMode
+        : null;
+    const codexArgs = managedPermissionMode
+        ? [
+            ...buildCodexPermissionModeCliArgs(managedPermissionMode),
+            ...stripCodexCliOverrides(session.codexArgs)
+        ]
+        : session.codexArgs;
 
     // Start hapi hub for MCP bridge (same as remote mode)
     const { server: happyServer, mcpServers } = await buildHapiMcpBridge(session.client);
@@ -33,7 +45,7 @@ export async function codexLocalLauncher(session: CodexSession): Promise<'switch
                 sessionId: resumeSessionId,
                 onSessionFound: handleSessionFound,
                 abort: abortSignal,
-                codexArgs: session.codexArgs,
+                codexArgs,
                 mcpServers
             });
         },
