@@ -11,6 +11,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import type { Machine, SessionSummary } from '@/types/api'
 import { getCodexModelLabel, normalizeCodexModel } from '@/lib/codexModels'
+import { getModelModeLabel } from '@hapi/protocol'
 import type { ApiClient } from '@/api/client'
 import { useLongPress } from '@/hooks/useLongPress'
 import { usePlatform } from '@/hooks/usePlatform'
@@ -399,6 +400,7 @@ function SessionItem(props: {
 
     const sessionName = getSessionTitle(s)
     const isReadOnly = Boolean(s.metadata?.readOnly)
+    const modelModeLabel = getModelModeLabel(s.modelMode ?? 'default')
     const statusDotClass = s.active
         ? (s.thinking ? 'bg-[#007AFF]' : 'bg-[var(--app-badge-success-text)]')
         : 'bg-[var(--app-hint)]'
@@ -530,7 +532,7 @@ function SessionItem(props: {
                                 const fallback = isCodexAutoSession(s.id) ? null : resolvedDefaultCodexModel
                                 return getCodexModelLabel(resolved ?? fallback)
                             })()
-                            : (s.modelMode || 'default')}
+                            : modelModeLabel}
                     </span>
                     {s.metadata?.worktree?.branch ? (
                         <span className="inline-flex min-w-0 flex-1 items-center gap-1">

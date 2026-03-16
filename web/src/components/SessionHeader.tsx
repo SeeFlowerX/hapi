@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { getModelModeLabel } from '@hapi/protocol'
 import type { Session } from '@/types/api'
 import type { ApiClient } from '@/api/client'
 import { isTelegramApp } from '@/hooks/useTelegram'
@@ -114,6 +115,7 @@ export function SessionHeader(props: {
     const { session, api, onSessionDeleted } = props
     const title = useMemo(() => getSessionTitle(session), [session])
     const worktreeBranch = session.metadata?.worktree?.branch
+    const modelModeLabel = getModelModeLabel(session.modelMode ?? 'default')
     const codexSessionId = session.metadata?.codexSessionId
     const isReadOnly = Boolean(session.metadata?.readOnly)
     const resolvedDefaultCodexModel = normalizeCodexModel(defaultCodexModel)
@@ -491,7 +493,7 @@ export function SessionHeader(props: {
                                 </span>
                             ) : (
                                 <span>
-                                    {t('session.item.modelMode')}: {session.modelMode || 'default'}
+                                    {t('session.item.modelMode')}: {modelModeLabel}
                                 </span>
                             )}
                             {codexSessionId ? (
