@@ -1,5 +1,6 @@
 export type AgentType = 'claude' | 'codex' | 'cursor' | 'gemini' | 'opencode'
 export type SessionType = 'simple' | 'worktree'
+export type CodexReasoningEffort = 'default' | 'low' | 'medium' | 'high' | 'xhigh'
 
 import { CODEX_MODEL_OPTIONS } from '@/lib/codexModels'
 
@@ -23,3 +24,11 @@ export const MODEL_OPTIONS: Record<AgentType, { value: string; label: string }[]
     ],
     opencode: [],
 }
+
+export const CODEX_REASONING_EFFORT_OPTIONS: { value: CodexReasoningEffort; label: string }[] = [
+    { value: 'default', label: 'Default' },
+    { value: 'low', label: 'Low' },
+    { value: 'medium', label: 'Medium' },
+    { value: 'high', label: 'High' },
+    { value: 'xhigh', label: 'XHigh' },
+]

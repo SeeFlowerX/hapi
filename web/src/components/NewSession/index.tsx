@@ -8,13 +8,14 @@ import { normalizeCodexModel } from '@/lib/codexModels'
 import { setPendingCodexModel } from '@/lib/pendingCodexModel'
 import { useDefaultCodexModel } from '@/hooks/useDefaultCodexModel'
 import { setCodexAutoSession } from '@/lib/codexSessionAuto'
-import type { AgentType, SessionType } from './types'
+import type { AgentType, CodexReasoningEffort, SessionType } from './types'
 import { ActionButtons } from './ActionButtons'
 import { AgentSelector } from './AgentSelector'
 import { DirectoryBrowser } from './DirectoryBrowser'
 import { DirectorySection } from './DirectorySection'
 import { MachineSelector } from './MachineSelector'
 import { ModelSelector } from './ModelSelector'
+import { ReasoningEffortSelector } from './ReasoningEffortSelector'
 import {
     loadPreferredAgent,
     loadPreferredYoloMode,
@@ -52,6 +53,7 @@ export function NewSession(props: {
             ? (resolvedDefaultCodexModel ?? 'auto')
             : 'auto'
     ))
+    const [modelReasoningEffort, setModelReasoningEffort] = useState<CodexReasoningEffort>('default')
     const [yoloMode, setYoloMode] = useState(loadPreferredYoloMode)
     const [sessionType, setSessionType] = useState<SessionType>('simple')
     const [worktreeName, setWorktreeName] = useState('')
@@ -183,11 +185,15 @@ export function NewSession(props: {
         setError(null)
         try {
             const resolvedModel = model !== 'auto' && agent !== 'opencode' ? model : undefined
+            const resolvedModelReasoningEffort = agent === 'codex' && modelReasoningEffort !== 'default'
+                ? modelReasoningEffort
+                : undefined
             const result = await spawnSession({
                 machineId,
                 directory: directory.trim(),
                 agent,
                 model: resolvedModel,
+                modelReasoningEffort: resolvedModelReasoningEffort,
                 yolo: yoloMode,
                 sessionType,
                 worktreeName: sessionType === 'worktree' ? (worktreeName.trim() || undefined) : undefined
@@ -278,6 +284,12 @@ export function NewSession(props: {
                 model={model}
                 isDisabled={isFormDisabled}
                 onModelChange={setModel}
+            />
+            <ReasoningEffortSelector
+                agent={agent}
+                value={modelReasoningEffort}
+                isDisabled={isFormDisabled}
+                onChange={setModelReasoningEffort}
             />
             <YoloToggle
                 yoloMode={yoloMode}
