@@ -330,7 +330,7 @@ export function HappyThread(props: {
                                     ) : null}
                                 </>
                             )}
-                            <div className="flex flex-col gap-3">
+                            <div className="happy-thread-messages flex flex-col gap-3">
                                 <ThreadPrimitive.Messages components={THREAD_MESSAGE_COMPONENTS} />
                             </div>
                         </div>
