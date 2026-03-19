@@ -586,7 +586,7 @@ function NewSessionPage() {
     }, [navigate, queryClient])
 
     return (
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex h-full min-h-0 flex-col">
             <div className="flex items-center gap-2 border-b border-[var(--app-border)] bg-[var(--app-bg)] p-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
                 {!isTelegramApp() && (
                     <button
