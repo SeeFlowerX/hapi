@@ -772,6 +772,7 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
                         const resumeCandidate = session.sessionId;
                         if (resumeCandidate) {
                             const threadParams = buildThreadStartParams({
+                                cwd: session.path,
                                 mode: message.mode,
                                 mcpServers,
                                 cliOverrides: session.codexCliOverrides
@@ -827,6 +828,7 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
                 if (!wasCreated) {
                     if (useAppServer && appServerClient) {
                         const threadParams = buildThreadStartParams({
+                            cwd: session.path,
                             mode: message.mode,
                             mcpServers,
                             cliOverrides: session.codexCliOverrides
@@ -874,6 +876,7 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
                         const turnParams = buildTurnStartParams({
                             threadId,
                             message: message.message,
+                            cwd: session.path,
                             mode: message.mode,
                             cliOverrides: session.codexCliOverrides
                         });
@@ -916,6 +919,7 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
                     const turnParams = buildTurnStartParams({
                         threadId: this.currentThreadId,
                         message: message.message,
+                        cwd: session.path,
                         mode: message.mode,
                         cliOverrides: session.codexCliOverrides
                     });

@@ -64,12 +64,12 @@ function resolveInstructions(args: {
 }
 
 export function buildThreadStartParams(args: {
+    cwd: string;
     mode: EnhancedMode;
     mcpServers: McpServersConfig;
     cliOverrides?: CodexCliOverrides;
     baseInstructions?: string;
     developerInstructions?: string;
-    cwd?: string;
 }): ThreadStartParams {
     const approvalPolicy = resolveApprovalPolicy(args.mode);
     const sandbox = resolveSandbox(args.mode);
@@ -90,7 +90,7 @@ export function buildThreadStartParams(args: {
     };
 
     const params: ThreadStartParams = {
-        ...(args.cwd ? { cwd: args.cwd } : {}),
+        cwd: args.cwd,
         approvalPolicy: resolvedApprovalPolicy,
         sandbox: resolvedSandbox,
         baseInstructions,
@@ -109,11 +109,11 @@ export function buildThreadStartParams(args: {
 export function buildTurnStartParams(args: {
     threadId: string;
     message: string;
+    cwd: string;
     mode?: EnhancedMode;
     cliOverrides?: CodexCliOverrides;
     baseInstructions?: string;
     developerInstructions?: string;
-    cwd?: string;
     overrides?: {
         approvalPolicy?: TurnStartParams['approvalPolicy'];
         sandboxPolicy?: TurnStartParams['sandboxPolicy'];
@@ -122,7 +122,7 @@ export function buildTurnStartParams(args: {
 }): TurnStartParams {
     const params: TurnStartParams = {
         threadId: args.threadId,
-        ...(args.cwd ? { cwd: args.cwd } : {}),
+        cwd: args.cwd,
         input: [{ type: 'text', text: args.message }]
     };
 

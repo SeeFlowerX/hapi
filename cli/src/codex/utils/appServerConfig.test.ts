@@ -29,6 +29,7 @@ describe('appServerConfig', () => {
 
     it('passes model reasoning effort via thread config', () => {
         const params = buildThreadStartParams({
+            cwd: '/workspace/project',
             mode: { permissionMode: 'default', modelReasoningEffort: 'xhigh' },
             mcpServers
         });
@@ -45,6 +46,7 @@ describe('appServerConfig', () => {
 
     it('ignores CLI overrides when permission mode is not default', () => {
         const params = buildThreadStartParams({
+            cwd: '/workspace/project',
             mode: { permissionMode: 'yolo' },
             mcpServers,
             cliOverrides: { sandbox: 'read-only', approvalPolicy: 'never' }
@@ -56,6 +58,7 @@ describe('appServerConfig', () => {
 
     it('keeps on-failure approvals for safe-yolo threads', () => {
         const params = buildThreadStartParams({
+            cwd: '/workspace/project',
             mode: { permissionMode: 'safe-yolo' },
             mcpServers
         });
@@ -66,6 +69,7 @@ describe('appServerConfig', () => {
 
     it('concatenates custom developer instructions after base instructions', () => {
         const params = buildThreadStartParams({
+            cwd: '/workspace/project',
             mode: { permissionMode: 'default' },
             mcpServers,
             developerInstructions: 'Only respond in Chinese.'
@@ -79,22 +83,6 @@ describe('appServerConfig', () => {
                 args: ['mcp']
             },
             developer_instructions: `${codexSystemPrompt}\n\nOnly respond in Chinese.`
-        });
-    });
-
-    it('passes model reasoning effort via thread config', () => {
-        const params = buildThreadStartParams({
-            mode: { permissionMode: 'default', modelReasoningEffort: 'xhigh', collaborationMode: 'default' },
-            mcpServers
-        });
-
-        expect(params.config).toEqual({
-            'mcp_servers.hapi': {
-                command: 'node',
-                args: ['mcp']
-            },
-            developer_instructions: codexSystemPrompt,
-            model_reasoning_effort: 'xhigh'
         });
     });
 
@@ -118,6 +106,7 @@ describe('appServerConfig', () => {
         const params = buildTurnStartParams({
             threadId: 'thread-1',
             message: 'hello',
+            cwd: '/workspace/project',
             mode: {
                 permissionMode: 'default',
                 model: 'o3',
@@ -141,6 +130,7 @@ describe('appServerConfig', () => {
         const params = buildTurnStartParams({
             threadId: 'thread-1',
             message: 'hello',
+            cwd: '/workspace/project',
             mode: {
                 permissionMode: 'default',
                 collaborationMode: 'plan'
@@ -154,6 +144,7 @@ describe('appServerConfig', () => {
         const params = buildTurnStartParams({
             threadId: 'thread-1',
             message: 'hello',
+            cwd: '/workspace/project',
             mode: { permissionMode: 'default' },
             cliOverrides: { sandbox: 'danger-full-access', approvalPolicy: 'never' }
         });
@@ -166,6 +157,7 @@ describe('appServerConfig', () => {
         const params = buildTurnStartParams({
             threadId: 'thread-1',
             message: 'hello',
+            cwd: '/workspace/project',
             mode: { permissionMode: 'safe-yolo' },
             cliOverrides: { sandbox: 'read-only', approvalPolicy: 'never' }
         });
@@ -178,6 +170,7 @@ describe('appServerConfig', () => {
         const params = buildTurnStartParams({
             threadId: 'thread-1',
             message: 'hello',
+            cwd: '/workspace/project',
             mode: { permissionMode: 'default' },
             overrides: { approvalPolicy: 'on-request', model: 'gpt-5' }
         });
