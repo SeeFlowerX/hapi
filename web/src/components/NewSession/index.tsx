@@ -2,12 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ApiClient } from '@/api/client'
 import type { Machine } from '@/types/api'
 import { usePlatform } from '@/hooks/usePlatform'
+import { useMachinePathsExists } from '@/hooks/useMachinePathsExists'
 import { useSpawnSession } from '@/hooks/mutations/useSpawnSession'
 import { useRecentPaths } from '@/hooks/useRecentPaths'
 import { normalizeCodexModel } from '@/lib/codexModels'
 import { setPendingCodexModel } from '@/lib/pendingCodexModel'
 import { useDefaultCodexModel } from '@/hooks/useDefaultCodexModel'
 import { setCodexAutoSession } from '@/lib/codexSessionAuto'
+import { useTranslation } from '@/lib/use-translation'
 import type { AgentType, CodexReasoningEffort, SessionType } from './types'
 import { ActionButtons } from './ActionButtons'
 import { AgentSelector } from './AgentSelector'
@@ -36,6 +38,7 @@ export function NewSession(props: {
     onCancel: () => void
 }) {
     const { haptic } = usePlatform()
+    const { t } = useTranslation()
     const { spawnSession, isPending, error: spawnError } = useSpawnSession(props.api)
     const isFormDisabled = Boolean(isPending || props.isLoading)
     const { getRecentPaths, addRecentPath, getLastUsedMachineId, setLastUsedMachineId } = useRecentPaths()
@@ -57,6 +60,7 @@ export function NewSession(props: {
     const [yoloMode, setYoloMode] = useState(loadPreferredYoloMode)
     const [sessionType, setSessionType] = useState<SessionType>('simple')
     const [worktreeName, setWorktreeName] = useState('')
+    const [directoryCreationConfirmed, setDirectoryCreationConfirmed] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const worktreeInputRef = useRef<HTMLInputElement>(null)
 
@@ -144,6 +148,34 @@ export function NewSession(props: {
         [getRecentPaths, machineId]
     )
 
+    const trimmedDirectory = directory.trim()
+    const pathsToCheck = useMemo(
+        () => (trimmedDirectory ? [trimmedDirectory] : []),
+        [trimmedDirectory]
+    )
+
+    const { pathExistence, checkPathsExists } = useMachinePathsExists(props.api, machineId, pathsToCheck)
+
+    const currentDirectoryExists = trimmedDirectory ? pathExistence[trimmedDirectory] : undefined
+    const needsDirectoryCreationWarning = sessionType === 'simple' && trimmedDirectory !== '' && currentDirectoryExists === false
+    const missingWorktreeDirectory = sessionType === 'worktree' && trimmedDirectory !== '' && currentDirectoryExists === false
+    const directoryStatusMessage = missingWorktreeDirectory
+        ? t('session.directoryMissingWorktree')
+        : needsDirectoryCreationWarning
+            ? (
+                directoryCreationConfirmed
+                    ? t('session.directoryMissingSimpleConfirm')
+                    : t('session.directoryMissingSimple')
+            )
+            : null
+    const directoryStatusTone = missingWorktreeDirectory ? 'error' : needsDirectoryCreationWarning ? 'warning' : null
+    const createLabel = needsDirectoryCreationWarning && directoryCreationConfirmed
+        ? t('session.createAndCreateDirectory')
+        : undefined
+
+    useEffect(() => {
+        setDirectoryCreationConfirmed(false)
+    }, [machineId, sessionType, trimmedDirectory])
     const handleMachineChange = useCallback((newMachineId: string) => {
         setMachineId(newMachineId)
         const paths = getRecentPaths(newMachineId)
@@ -180,17 +212,31 @@ export function NewSession(props: {
     }, [handleBrowserOpenChange, isFormDisabled, machineId])
 
     async function handleCreate() {
-        if (!machineId || !directory.trim()) return
+        if (!machineId || !trimmedDirectory) return
 
         setError(null)
         try {
+            const existsResult = await checkPathsExists([trimmedDirectory])
+            const directoryExists = existsResult[trimmedDirectory]
+
+            if (sessionType === 'worktree' && directoryExists === false) {
+                haptic.notification('error')
+                setError(t('session.directoryMissingWorktree'))
+                return
+            }
+
+            if (sessionType === 'simple' && directoryExists === false && !directoryCreationConfirmed) {
+                setDirectoryCreationConfirmed(true)
+                return
+            }
+
             const resolvedModel = model !== 'auto' && agent !== 'opencode' ? model : undefined
             const resolvedModelReasoningEffort = agent === 'codex' && modelReasoningEffort !== 'default'
                 ? modelReasoningEffort
                 : undefined
             const result = await spawnSession({
                 machineId,
-                directory: directory.trim(),
+                directory: trimmedDirectory,
                 agent,
                 model: resolvedModel,
                 modelReasoningEffort: resolvedModelReasoningEffort,
@@ -218,7 +264,7 @@ export function NewSession(props: {
                     }
                 }
                 setLastUsedMachineId(machineId)
-                addRecentPath(machineId, directory.trim())
+                addRecentPath(machineId, trimmedDirectory)
                 props.onSuccess(result.sessionId)
                 return
             }
@@ -231,7 +277,7 @@ export function NewSession(props: {
         }
     }
 
-    const canCreate = Boolean(machineId && directory.trim() && !isFormDisabled)
+    const canCreate = Boolean(machineId && trimmedDirectory && !isFormDisabled && !missingWorktreeDirectory)
 
     return (
         <div className="flex flex-col divide-y divide-[var(--app-divider)]">
@@ -264,6 +310,8 @@ export function NewSession(props: {
                     />
                 )}
                 onDirectoryClick={handleDirectoryClick}
+                statusMessage={directoryStatusMessage}
+                statusTone={directoryStatusTone}
                 onPathClick={handlePathClick}
             />
             <SessionTypeSelector
@@ -307,6 +355,7 @@ export function NewSession(props: {
                 isPending={isPending}
                 canCreate={canCreate}
                 isDisabled={isFormDisabled}
+                createLabel={createLabel}
                 onCancel={props.onCancel}
                 onCreate={handleCreate}
             />

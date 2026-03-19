@@ -10,6 +10,8 @@ export function DirectorySection(props: {
     isBrowserOpen?: boolean
     onBrowserOpenChange?: (open: boolean) => void
     onDirectoryClick: () => void
+    statusMessage?: string | null
+    statusTone?: 'warning' | 'error' | null
     onPathClick: (path: string) => void
 }) {
     const { t } = useTranslation()
@@ -64,6 +66,18 @@ export function DirectorySection(props: {
                         {props.browser}
                     </DialogContent>
                 </Dialog>
+            ) : null}
+
+            {props.statusMessage ? (
+                <div
+                    className={`mt-1 rounded-md px-2 py-1 text-xs ${
+                        props.statusTone === 'error'
+                            ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
+                            : 'bg-amber-500/10 text-[var(--app-hint)]'
+                    }`}
+                >
+                    {props.statusMessage}
+                </div>
             ) : null}
         </div>
     )
