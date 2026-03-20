@@ -44,6 +44,17 @@ describe('appServerConfig', () => {
         });
     });
 
+    it('uses on-request approvals for default Codex threads', () => {
+        const params = buildThreadStartParams({
+            cwd: '/workspace/project',
+            mode: { permissionMode: 'default' },
+            mcpServers
+        });
+
+        expect(params.sandbox).toBe('workspace-write');
+        expect(params.approvalPolicy).toBe('on-request');
+    });
+
     it('ignores CLI overrides when permission mode is not default', () => {
         const params = buildThreadStartParams({
             cwd: '/workspace/project',
