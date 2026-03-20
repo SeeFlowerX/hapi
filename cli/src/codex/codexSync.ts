@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, readdir, readlink, stat, writeFile } from 'node:fs/promises'
 import spawn from 'cross-spawn'
+import { AGENT_MESSAGE_PAYLOAD_TYPE } from '@hapi/protocol'
 
 import { ApiClient } from '@/api/api'
 import type { ApiSessionClient } from '@/api/apiSession'
@@ -491,7 +492,7 @@ async function sendCodexEvents(client: ApiSessionClient, entries: CodexSessionFi
             client.sendMessageContent({
                 role: 'agent',
                 content: {
-                    type: 'codex',
+                    type: AGENT_MESSAGE_PAYLOAD_TYPE,
                     data: converted.message
                 },
                 meta: { sentFrom: 'cli' }

@@ -1,6 +1,6 @@
 import type { AgentEvent, NormalizedAgentContent, NormalizedMessage, ToolResultPermission } from '@/chat/types'
 import type { AttachmentMetadata } from '@/types/api'
-import { asNumber, asString, isObject } from '@hapi/protocol'
+import { AGENT_MESSAGE_PAYLOAD_TYPE, asNumber, asString, isObject } from '@hapi/protocol'
 
 function normalizeToolResultPermissions(value: unknown): ToolResultPermission | undefined {
     if (!isObject(value)) return undefined
@@ -231,7 +231,7 @@ export function isSkippableAgentContent(content: unknown): boolean {
 }
 
 export function isCodexContent(content: unknown): boolean {
-    return isObject(content) && content.type === 'codex'
+    return isObject(content) && content.type === AGENT_MESSAGE_PAYLOAD_TYPE
 }
 
 export function normalizeAgentRecord(
@@ -348,7 +348,7 @@ export function normalizeAgentRecord(
         }
     }
 
-    if (content.type === 'codex') {
+    if (content.type === AGENT_MESSAGE_PAYLOAD_TYPE) {
         const data = isObject(content.data) ? content.data : null
         if (!data || typeof data.type !== 'string') return null
 

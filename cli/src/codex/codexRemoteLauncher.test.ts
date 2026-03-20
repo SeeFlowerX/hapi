@@ -101,7 +101,7 @@ function createSessionStub() {
         updateAgentState(handler: (state: FakeAgentState) => FakeAgentState) {
             agentState = handler(agentState);
         },
-        sendCodexMessage(message: unknown) {
+        sendAgentMessage(message: unknown) {
             codexMessages.push(message);
         },
         sendUserMessage(_text: string) {},
@@ -127,8 +127,8 @@ function createSessionStub() {
             session.sessionId = id;
             foundSessionIds.push(id);
         },
-        sendCodexMessage(message: unknown) {
-            client.sendCodexMessage(message);
+        sendAgentMessage(message: unknown) {
+            client.sendAgentMessage(message);
         },
         sendSessionEvent(event: { type: string; [key: string]: unknown }) {
             client.sendSessionEvent(event);

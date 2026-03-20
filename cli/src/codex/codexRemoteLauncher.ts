@@ -201,7 +201,7 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
                 const cwdValue = inputRecord.cwd;
                 const cwd = typeof cwdValue === 'string' && cwdValue.trim().length > 0 ? cwdValue : undefined;
 
-                session.sendCodexMessage({
+                session.sendAgentMessage({
                     type: 'tool-call',
                     name: 'CodexPermission',
                     callId: id,
@@ -215,7 +215,7 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
                 });
             },
             onComplete: ({ id, decision, reason, approved }) => {
-                session.sendCodexMessage({
+                session.sendAgentMessage({
                     type: 'tool-call-result',
                     callId: id,
                     output: {
@@ -228,10 +228,10 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
             }
         });
         const reasoningProcessor = new ReasoningProcessor((message) => {
-            session.sendCodexMessage(message);
+            session.sendAgentMessage(message);
         });
         const diffProcessor = new DiffProcessor((message) => {
-            session.sendCodexMessage(message);
+            session.sendAgentMessage(message);
         });
         this.permissionHandler = permissionHandler;
         this.reasoningProcessor = reasoningProcessor;
@@ -389,7 +389,7 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
             if (msgType === 'agent_message') {
                 const message = asString(msg.message);
                 if (message) {
-                    session.sendCodexMessage({
+                    session.sendAgentMessage({
                         type: 'message',
                         message,
                         id: randomUUID()
@@ -404,7 +404,7 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
                     delete inputs.call_id;
                     delete inputs.callId;
 
-                    session.sendCodexMessage({
+                    session.sendAgentMessage({
                         type: 'tool-call',
                         name: 'CodexBash',
                         callId: callId,
@@ -421,7 +421,7 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
                     delete output.call_id;
                     delete output.callId;
 
-                    session.sendCodexMessage({
+                    session.sendAgentMessage({
                         type: 'tool-call-result',
                         callId: callId,
                         output,
@@ -445,8 +445,7 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
                             : currentState?.tokenUsage
                     }));
                 }
-            }
-            if (msgType === 'context_compacted' || msgType === 'thread_compacted') {
+            } else if (msgType === 'context_compacted' || msgType === 'thread_compacted') {
                 session.client.updateAgentState((currentState) => {
                     const { tokenUsage, ...rest } = currentState ?? {};
                     return { ...rest };
@@ -460,7 +459,7 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
                     const filesMsg = changeCount === 1 ? '1 file' : `${changeCount} files`;
                     messageBuffer.addMessage(`Modifying ${filesMsg}...`, 'tool');
 
-                    session.sendCodexMessage({
+                    session.sendAgentMessage({
                         type: 'tool-call',
                         name: 'CodexPatch',
                         callId: callId,
@@ -487,7 +486,7 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
                         messageBuffer.addMessage(`Error: ${errorMsg.substring(0, 200)}`, 'result');
                     }
 
-                    session.sendCodexMessage({
+                    session.sendAgentMessage({
                         type: 'tool-call-result',
                         callId: callId,
                         output: {
@@ -507,7 +506,7 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
                     invocation.tool ?? invocation.tool_name ?? msg.tool
                 );
                 if (callId && name) {
-                    session.sendCodexMessage({
+                    session.sendAgentMessage({
                         type: 'tool-call',
                         name,
                         callId,
@@ -520,7 +519,7 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
                 const callId = asString(msg.call_id ?? msg.callId);
                 const name = asString(msg.name);
                 if (callId && name) {
-                    session.sendCodexMessage({
+                    session.sendAgentMessage({
                         type: 'tool-call',
                         name,
                         callId,
@@ -545,7 +544,7 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
                 }
 
                 if (callId) {
-                    session.sendCodexMessage({
+                    session.sendAgentMessage({
                         type: 'tool-call-result',
                         callId,
                         output,
@@ -557,7 +556,7 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
             if (msgType === 'tool-call-result') {
                 const callId = asString(msg.call_id ?? msg.callId);
                 if (callId) {
-                    session.sendCodexMessage({
+                    session.sendAgentMessage({
                         type: 'tool-call-result',
                         callId,
                         output: msg.output,
@@ -622,16 +621,16 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
                         const info = converted.message.info;
                         const usage = normalizeTokenUsage(info);
                         const contextLimitTokens = extractContextLimitTokens(info);
-                        if (usage || contextLimitTokens !== null) {
-                            session.client.updateAgentState((currentState) => ({
-                                ...(currentState ?? {}),
-                                ...(contextLimitTokens !== null ? { contextLimitTokens } : {}),
-                                tokenUsage: usage ?? currentState?.tokenUsage
-                            }));
-                        }
-                    } else {
-                        session.sendCodexMessage(converted.message);
+                    if (usage || contextLimitTokens !== null) {
+                        session.client.updateAgentState((currentState) => ({
+                            ...(currentState ?? {}),
+                            ...(contextLimitTokens !== null ? { contextLimitTokens } : {}),
+                            tokenUsage: usage ?? currentState?.tokenUsage
+                        }));
                     }
+                } else {
+                    session.sendAgentMessage(converted.message);
+                }
                 }
                 const eventType = asString(eventRecord.type);
                 if (eventType !== 'response_item' && eventType !== 'event_msg' && eventType !== 'session_meta') {

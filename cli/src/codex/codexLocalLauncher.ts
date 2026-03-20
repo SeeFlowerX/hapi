@@ -126,7 +126,7 @@ export async function codexLocalLauncher(session: CodexSession): Promise<'switch
                     }
                     return;
                 }
-                session.sendCodexMessage(converted.message);
+                session.sendAgentMessage(converted.message);
             }
         }
     });

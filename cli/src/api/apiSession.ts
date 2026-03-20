@@ -9,6 +9,7 @@ import { apiValidationError } from '@/utils/errorUtils'
 import { AsyncLock } from '@/utils/lock'
 import type { RawJSONLines } from '@/claude/types'
 import { configuration } from '@/configuration'
+import { AGENT_MESSAGE_PAYLOAD_TYPE } from "@hapi/protocol"
 import type { ClientToServerEvents, ServerToClientEvents, Update } from '@hapi/protocol'
 import {
     TerminalClosePayloadSchema,
@@ -443,11 +444,11 @@ export class ApiSessionClient extends EventEmitter {
         this.sendMessageContent(content)
     }
 
-    sendCodexMessage(body: unknown): void {
+    sendAgentMessage(body: unknown): void {
         const content: MessageContent = {
             role: 'agent',
             content: {
-                type: 'codex',
+                type: AGENT_MESSAGE_PAYLOAD_TYPE,
                 data: truncateToolResultIfNeeded(body)
             },
             meta: {

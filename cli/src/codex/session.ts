@@ -65,8 +65,8 @@ export class CodexSession extends AgentSessionBase<EnhancedMode> {
         this.localLaunchFailure = { message, exitReason };
     };
 
-    sendCodexMessage = (message: unknown): void => {
-        this.client.sendCodexMessage(message);
+    sendAgentMessage = (message: unknown): void => {
+        this.client.sendAgentMessage(message);
     };
 
     sendUserMessage = (text: string): void => {

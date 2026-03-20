@@ -87,7 +87,7 @@ function createSessionStub(permissionMode: 'default' | 'read-only' | 'safe-yolo'
                 localLaunchFailure = { message, exitReason };
             },
             sendUserMessage: () => {},
-            sendCodexMessage: () => {},
+            sendAgentMessage: () => {},
             queue: createQueueStub()
         },
         sessionEvents,
