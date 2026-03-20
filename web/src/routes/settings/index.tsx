@@ -5,6 +5,7 @@ import { getElevenLabsSupportedLanguages, getLanguageDisplayName, type Language 
 import { getFontScaleOptions, useFontScale, type FontScale } from '@/hooks/useFontScale'
 import { CODEX_MODEL_OPTIONS, normalizeCodexModel } from '@/lib/codexModels'
 import { useDefaultCodexModel } from '@/hooks/useDefaultCodexModel'
+import { getTerminalFontSizeOptions, useTerminalFontSize, type TerminalFontSize } from '@/hooks/useTerminalFontSize'
 import { useAppearance, getAppearanceOptions, type AppearancePreference } from '@/hooks/useTheme'
 import { PROTOCOL_VERSION } from '@hapi/protocol'
 
@@ -78,15 +79,18 @@ export default function SettingsPage() {
     const [isOpen, setIsOpen] = useState(false)
     const [isAppearanceOpen, setIsAppearanceOpen] = useState(false)
     const [isFontOpen, setIsFontOpen] = useState(false)
+    const [isTerminalFontOpen, setIsTerminalFontOpen] = useState(false)
     const [isVoiceOpen, setIsVoiceOpen] = useState(false)
     const [isCodexOpen, setIsCodexOpen] = useState(false)
     const containerRef = useRef<HTMLDivElement>(null)
     const appearanceContainerRef = useRef<HTMLDivElement>(null)
     const fontContainerRef = useRef<HTMLDivElement>(null)
+    const terminalFontContainerRef = useRef<HTMLDivElement>(null)
     const voiceContainerRef = useRef<HTMLDivElement>(null)
     const codexContainerRef = useRef<HTMLDivElement>(null)
     const { fontScale, setFontScale } = useFontScale()
     const { defaultCodexModel, setDefaultCodexModel } = useDefaultCodexModel()
+    const { terminalFontSize, setTerminalFontSize } = useTerminalFontSize()
     const { appearance, setAppearance } = useAppearance()
 
     // Voice language state - read from localStorage
@@ -95,10 +99,12 @@ export default function SettingsPage() {
     })
 
     const fontScaleOptions = getFontScaleOptions()
+    const terminalFontSizeOptions = getTerminalFontSizeOptions()
     const appearanceOptions = getAppearanceOptions()
     const currentLocale = locales.find((loc) => loc.value === locale)
     const currentAppearanceLabel = appearanceOptions.find((opt) => opt.value === appearance)?.labelKey ?? 'settings.display.appearance.system'
     const currentFontScaleLabel = fontScaleOptions.find((opt) => opt.value === fontScale)?.label ?? '100%'
+    const currentTerminalFontSizeLabel = terminalFontSizeOptions.find((opt) => opt.value === terminalFontSize)?.label ?? '13px'
     const currentVoiceLanguage = voiceLanguages.find((lang) => lang.code === voiceLanguage)
     const codexModelValue = defaultCodexModel ?? 'auto'
     const currentCodexModelLabel = CODEX_MODEL_OPTIONS.find((opt) => opt.value === codexModelValue)?.label ?? 'Auto'
@@ -116,6 +122,11 @@ export default function SettingsPage() {
     const handleFontScaleChange = (newScale: FontScale) => {
         setFontScale(newScale)
         setIsFontOpen(false)
+    }
+
+    const handleTerminalFontSizeChange = (newSize: TerminalFontSize) => {
+        setTerminalFontSize(newSize)
+        setIsTerminalFontOpen(false)
     }
 
     const handleVoiceLanguageChange = (language: Language) => {
@@ -136,7 +147,7 @@ export default function SettingsPage() {
 
     // Close dropdown when clicking outside
     useEffect(() => {
-        if (!isOpen && !isAppearanceOpen && !isFontOpen && !isVoiceOpen && !isCodexOpen) return
+        if (!isOpen && !isAppearanceOpen && !isFontOpen && !isTerminalFontOpen && !isVoiceOpen && !isCodexOpen) return
 
         const handleClickOutside = (event: MouseEvent) => {
             if (isOpen && containerRef.current && !containerRef.current.contains(event.target as Node)) {
@@ -148,6 +159,9 @@ export default function SettingsPage() {
             if (isFontOpen && fontContainerRef.current && !fontContainerRef.current.contains(event.target as Node)) {
                 setIsFontOpen(false)
             }
+            if (isTerminalFontOpen && terminalFontContainerRef.current && !terminalFontContainerRef.current.contains(event.target as Node)) {
+                setIsTerminalFontOpen(false)
+            }
             if (isVoiceOpen && voiceContainerRef.current && !voiceContainerRef.current.contains(event.target as Node)) {
                 setIsVoiceOpen(false)
             }
@@ -158,17 +172,18 @@ export default function SettingsPage() {
 
         document.addEventListener('mousedown', handleClickOutside)
         return () => document.removeEventListener('mousedown', handleClickOutside)
-    }, [isOpen, isAppearanceOpen, isFontOpen, isVoiceOpen, isCodexOpen])
+    }, [isOpen, isAppearanceOpen, isFontOpen, isTerminalFontOpen, isVoiceOpen, isCodexOpen])
 
     // Close on escape key
     useEffect(() => {
-        if (!isOpen && !isAppearanceOpen && !isFontOpen && !isVoiceOpen && !isCodexOpen) return
+        if (!isOpen && !isAppearanceOpen && !isFontOpen && !isTerminalFontOpen && !isVoiceOpen && !isCodexOpen) return
 
         const handleEscape = (event: KeyboardEvent) => {
             if (event.key === 'Escape') {
                 setIsOpen(false)
                 setIsAppearanceOpen(false)
                 setIsFontOpen(false)
+                setIsTerminalFontOpen(false)
                 setIsVoiceOpen(false)
                 setIsCodexOpen(false)
             }
@@ -176,7 +191,7 @@ export default function SettingsPage() {
 
         document.addEventListener('keydown', handleEscape)
         return () => document.removeEventListener('keydown', handleEscape)
-    }, [isOpen, isAppearanceOpen, isFontOpen, isVoiceOpen, isCodexOpen])
+    }, [isOpen, isAppearanceOpen, isFontOpen, isTerminalFontOpen, isVoiceOpen, isCodexOpen])
 
     return (
         <div className="flex h-full min-h-0 flex-col">
@@ -333,6 +348,54 @@ export default function SettingsPage() {
                                                 role="option"
                                                 aria-selected={isSelected}
                                                 onClick={() => handleFontScaleChange(opt.value)}
+                                                className={`flex items-center justify-between w-full px-3 py-2 text-base text-left transition-colors ${
+                                                    isSelected
+                                                        ? 'text-[var(--app-link)] bg-[var(--app-subtle-bg)]'
+                                                        : 'text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)]'
+                                                }`}
+                                            >
+                                                <span>{opt.label}</span>
+                                                {isSelected && (
+                                                    <span className="ml-2 text-[var(--app-link)]">
+                                                        <CheckIcon />
+                                                    </span>
+                                                )}
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                        <div ref={terminalFontContainerRef} className="relative">
+                            <button
+                                type="button"
+                                onClick={() => setIsTerminalFontOpen(!isTerminalFontOpen)}
+                                className="flex w-full items-center justify-between px-3 py-3 text-left transition-colors hover:bg-[var(--app-subtle-bg)]"
+                                aria-expanded={isTerminalFontOpen}
+                                aria-haspopup="listbox"
+                            >
+                                <span className="text-[var(--app-fg)]">{t('settings.display.terminalFontSize')}</span>
+                                <span className="flex items-center gap-1 text-[var(--app-hint)]">
+                                    <span>{currentTerminalFontSizeLabel}</span>
+                                    <ChevronDownIcon className={`transition-transform ${isTerminalFontOpen ? 'rotate-180' : ''}`} />
+                                </span>
+                            </button>
+
+                            {isTerminalFontOpen && (
+                                <div
+                                    className="absolute right-3 top-full mt-1 min-w-[140px] rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] shadow-lg overflow-hidden z-50"
+                                    role="listbox"
+                                    aria-label={t('settings.display.terminalFontSize')}
+                                >
+                                    {terminalFontSizeOptions.map((opt) => {
+                                        const isSelected = terminalFontSize === opt.value
+                                        return (
+                                            <button
+                                                key={opt.value}
+                                                type="button"
+                                                role="option"
+                                                aria-selected={isSelected}
+                                                onClick={() => handleTerminalFontSizeChange(opt.value)}
                                                 className={`flex items-center justify-between w-full px-3 py-2 text-base text-left transition-colors ${
                                                     isSelected
                                                         ? 'text-[var(--app-link)] bg-[var(--app-subtle-bg)]'
