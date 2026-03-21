@@ -418,6 +418,7 @@ export class SyncEngine {
             undefined,
             undefined,
             undefined,
+            undefined,
             resumeToken
         )
 
