@@ -23,6 +23,7 @@ import { clearPendingCodexModel, getPendingCodexModel, setPendingCodexModel } fr
 import { useDefaultCodexModel } from '@/hooks/useDefaultCodexModel'
 import { isCodexAutoSession, setCodexAutoSession } from '@/lib/codexSessionAuto'
 import { isImageMimeType } from '@/lib/fileAttachments'
+import { isRemoteTerminalSupported } from '@/utils/terminalSupport'
 
 export function SessionChat(props: {
     api: ApiClient
@@ -48,6 +49,7 @@ export function SessionChat(props: {
     const navigate = useNavigate()
     const sessionInactive = !props.session.active
     const isReadOnly = Boolean(props.session.metadata?.readOnly)
+    const terminalSupported = isRemoteTerminalSupported(props.session.metadata)
     const normalizedCacheRef = useRef<Map<string, { source: DecryptedMessage; normalized: NormalizedMessage | null }>>(new Map())
     const blocksByIdRef = useRef<Map<string, ChatBlock>>(new Map())
     const [forceScrollToken, setForceScrollToken] = useState(0)
@@ -503,7 +505,8 @@ export function SessionChat(props: {
                         onModelModeChange={isReadOnly ? undefined : handleModelModeChange}
                         onCodexModelChange={isReadOnly ? undefined : handleCodexModelChange}
                         onSwitchToRemote={isReadOnly ? undefined : handleSwitchToRemote}
-                        onTerminal={props.session.active && !isReadOnly ? handleViewTerminal : undefined}
+                        onTerminal={props.session.active && !isReadOnly && terminalSupported ? handleViewTerminal : undefined}
+                        terminalUnsupported={props.session.active && !terminalSupported}
                         autocompleteSuggestions={props.autocompleteSuggestions}
                         voiceStatus={voice?.status}
                         voiceMicMuted={voice?.micMuted}
