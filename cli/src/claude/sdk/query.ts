@@ -88,6 +88,7 @@ export class Query implements AsyncIterableIterator<SDKMessage> {
      */
     private async readMessages(): Promise<void> {
         const rl = createInterface({ input: this.childStdout })
+        let hadError = false
 
         try {
             for await (const line of rl) {
@@ -118,9 +119,14 @@ export class Query implements AsyncIterableIterator<SDKMessage> {
             }
             await this.processExitPromise
         } catch (error) {
+            hadError = true
             this.inputStream.error(error as Error)
         } finally {
-            this.inputStream.done()
+            // Only call done() on clean exit - calling done() after error()
+            // would mask the error since Stream.next() checks isDone before hasError
+            if (!hadError) {
+                this.inputStream.done()
+            }
             this.cleanupControllers()
             rl.close()
         }
@@ -381,35 +387,50 @@ export function query(config: {
     process.on('exit', cleanup)
 
     // Handle process exit
-    const processExitPromise = new Promise<void>((resolve) => {
-        child.on('close', (code) => {
-            if (config.options?.abort?.aborted) {
-                query.setError(new AbortError('Claude Code process aborted by user'))
-            }
-            if (code !== 0) {
-                query.setError(new Error(`Claude Code process exited with code ${code}`))
-            } else {
-                resolve()
-            }
-        })
+    let resolveExit: () => void
+    let rejectExit: (error: Error) => void
+    const processExitPromise = new Promise<void>((resolve, reject) => {
+        resolveExit = resolve
+        rejectExit = reject
     })
 
-    // Create query instance
+    // Create query instance BEFORE registering close handler
+    // to avoid temporal dependency on `query` variable
     const query = new Query(childStdin, child.stdout, processExitPromise, canCallTool)
+
+    // Register close handler - query is safely defined now
+    child.on('close', (code) => {
+        if (config.options?.abort?.aborted) {
+            const err = new AbortError('Claude Code process aborted by user')
+            query.setError(err)
+            rejectExit(err)
+        } else if (code !== 0) {
+            const err = new Error(`Claude Code process exited with code ${code}`)
+            query.setError(err)
+            rejectExit(err)
+        } else {
+            resolveExit()
+        }
+    })
 
     // Handle process errors
     child.on('error', (error) => {
         cleanupMcpConfig?.()
         if (config.options?.abort?.aborted) {
-            query.setError(new AbortError('Claude Code process aborted by user'))
+            const err = new AbortError('Claude Code process aborted by user')
+            query.setError(err)
+            rejectExit(err)
         } else {
-            query.setError(new Error(`Failed to spawn Claude Code process: ${error.message}`))
+            const err = new Error(`Failed to spawn Claude Code process: ${error.message}`)
+            query.setError(err)
+            rejectExit(err)
         }
     })
 
-    // Cleanup on exit
-    processExitPromise.finally(() => {
+    // Cleanup on exit (catch rejection to avoid unhandled promise warning)
+    processExitPromise.catch(() => {}).finally(() => {
         cleanup()
+        process.removeListener('exit', cleanup)
         config.options?.abort?.removeEventListener('abort', cleanup)
         if (process.env.CLAUDE_SDK_MCP_SERVERS) {
             delete process.env.CLAUDE_SDK_MCP_SERVERS
