@@ -427,7 +427,6 @@ export function SessionChat(props: {
         if (isReadOnly) {
             return
         }
-
         if (agentFlavor === 'codex') {
             const unsupportedCommand = findUnsupportedCodexBuiltinSlashCommand(
                 text,
@@ -447,6 +446,7 @@ export function SessionChat(props: {
 
         props.onSend(text, attachments)
         setForceScrollToken((token) => token + 1)
+    }, [agentFlavor, props.availableSlashCommands, props.onSend, props.session.id, addToast, haptic, isReadOnly, t])
     }, [agentFlavor, props.availableSlashCommands, props.onSend, props.session.id, addToast, haptic, isReadOnly, t])
 
     const attachmentAdapter = useMemo(() => {
