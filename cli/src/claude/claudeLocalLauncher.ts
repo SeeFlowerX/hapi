@@ -15,6 +15,11 @@ export async function claudeLocalLauncher(session: Session): Promise<'switch' | 
             if (message.type === 'summary') {
                 return
             }
+            // Filter out internal meta messages (e.g. skill injections) and
+            // compact summaries to avoid them appearing in the web UI
+            if (message.isMeta || message.isCompactSummary) {
+                return
+            }
             // Filter out invisible system messages (e.g. init, stop_hook_summary)
             // to avoid them showing as raw JSON in the web UI
             if (!isClaudeChatVisibleMessage(message)) {
