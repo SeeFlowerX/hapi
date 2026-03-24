@@ -7,11 +7,13 @@ describe('appServerConfig', () => {
 
     it('applies CLI overrides when permission mode is default', () => {
         const params = buildThreadStartParams({
+            cwd: '/workspace/project',
             mode: { permissionMode: 'default' },
             mcpServers,
             cliOverrides: { sandbox: 'danger-full-access', approvalPolicy: 'never' }
         });
 
+        expect(params.cwd).toBe('/workspace/project');
         expect(params.sandbox).toBe('danger-full-access');
         expect(params.approvalPolicy).toBe('never');
         expect(params.baseInstructions).toBe(codexSystemPrompt);
@@ -22,6 +24,22 @@ describe('appServerConfig', () => {
                 args: ['mcp']
             },
             developer_instructions: codexSystemPrompt
+        });
+    });
+
+    it('passes model reasoning effort via thread config', () => {
+        const params = buildThreadStartParams({
+            mode: { permissionMode: 'default', modelReasoningEffort: 'xhigh' },
+            mcpServers
+        });
+
+        expect(params.config).toEqual({
+            'mcp_servers.hapi': {
+                command: 'node',
+                args: ['mcp']
+            },
+            developer_instructions: codexSystemPrompt,
+            model_reasoning_effort: 'xhigh'
         });
     });
 
@@ -58,10 +76,12 @@ describe('appServerConfig', () => {
         const params = buildTurnStartParams({
             threadId: 'thread-1',
             message: 'hello',
+            cwd: '/workspace/project',
             mode: { permissionMode: 'read-only', model: 'o3' }
         });
 
         expect(params.threadId).toBe('thread-1');
+        expect(params.cwd).toBe('/workspace/project');
         expect(params.input).toEqual([{ type: 'text', text: 'hello' }]);
         expect(params.approvalPolicy).toBe('never');
         expect(params.sandboxPolicy).toEqual({ type: 'readOnly' });
@@ -72,11 +92,36 @@ describe('appServerConfig', () => {
         const params = buildTurnStartParams({
             threadId: 'thread-1',
             message: 'hello',
-            mode: { permissionMode: 'default', model: 'o3', collaborationMode: 'plan' }
+            mode: {
+                permissionMode: 'default',
+                model: 'o3',
+                modelReasoningEffort: 'high',
+                collaborationMode: 'plan'
+            }
         });
 
-        expect(params.collaborationMode).toEqual({ mode: 'plan', settings: { model: 'o3' } });
+        expect(params.collaborationMode).toEqual({
+            mode: 'plan',
+            settings: {
+                model: 'o3',
+                reasoning_effort: 'high',
+                developer_instructions: codexSystemPrompt
+            }
+        });
         expect(params.model).toBeUndefined();
+    });
+
+    it('keeps collaboration mode without model for auto/default model flows', () => {
+        const params = buildTurnStartParams({
+            threadId: 'thread-1',
+            message: 'hello',
+            mode: {
+                permissionMode: 'default',
+                collaborationMode: 'plan'
+            }
+        });
+
+        expect(params.collaborationMode).toEqual({ mode: 'plan' });
     });
 
     it('applies CLI overrides for turns when permission mode is default', () => {

@@ -12,6 +12,7 @@ import { isPermissionModeAllowedForFlavor } from '@hapi/protocol';
 import { PermissionModeSchema } from '@hapi/protocol/schemas';
 import { formatMessageWithAttachments } from '@/utils/attachmentFormatter';
 import { ReminderTimerManager } from '@/utils/ReminderTimerManager';
+import type { ReasoningEffort } from './appServerTypes';
 
 export { emitReadyIfIdle } from './utils/emitReadyIfIdle';
 
@@ -21,6 +22,7 @@ export async function runCodex(opts: {
     permissionMode?: PermissionMode;
     resumeSessionId?: string;
     model?: string;
+    modelReasoningEffort?: ReasoningEffort;
 }): Promise<void> {
     const workingDirectory = process.cwd();
     const startedBy = opts.startedBy ?? 'terminal';
@@ -45,6 +47,7 @@ export async function runCodex(opts: {
     const messageQueue = new MessageQueue2<EnhancedMode>((mode) => hashObject({
         permissionMode: mode.permissionMode,
         model: mode.model,
+        modelReasoningEffort: mode.modelReasoningEffort,
         collaborationMode: mode.collaborationMode
     }));
 
@@ -53,12 +56,14 @@ export async function runCodex(opts: {
 
     let currentPermissionMode: PermissionMode = opts.permissionMode ?? 'default';
     let currentModel: string | undefined = opts.model;
+    let currentModelReasoningEffort: ReasoningEffort | undefined = opts.modelReasoningEffort;
     let currentCollaborationMode: EnhancedMode['collaborationMode'];
 
     const reminderManager = new ReminderTimerManager<EnhancedMode>({
         getMode: () => ({
             permissionMode: currentPermissionMode ?? 'default',
             model: currentModel,
+            modelReasoningEffort: currentModelReasoningEffort,
             collaborationMode: currentCollaborationMode
         }),
         enqueueMessage: (message, mode) => messageQueue.push(message, mode),
@@ -80,16 +85,25 @@ export async function runCodex(opts: {
             return;
         }
         sessionInstance.setPermissionMode(currentPermissionMode);
-        logger.debug(`[Codex] Synced session permission mode for keepalive: ${currentPermissionMode}`);
+        logger.debug(
+            `[Codex] Synced session config for keepalive: ` +
+            `permissionMode=${currentPermissionMode}, model=${currentModel ?? 'auto'}, ` +
+            `modelReasoningEffort=${currentModelReasoningEffort ?? 'default'}, collaborationMode=${currentCollaborationMode ?? 'default'}`
+        );
     };
 
     session.onUserMessage((message) => {
         const messagePermissionMode = currentPermissionMode;
-        logger.debug(`[Codex] User message received with permission mode: ${currentPermissionMode}`);
+        logger.debug(
+            `[Codex] User message received with permission mode: ${currentPermissionMode}, ` +
+            `model: ${currentModel ?? 'auto'}, modelReasoningEffort: ${currentModelReasoningEffort ?? 'default'}, ` +
+            `collaborationMode: ${currentCollaborationMode ?? 'default'}`
+        );
 
         const enhancedMode: EnhancedMode = {
             permissionMode: messagePermissionMode ?? 'default',
             model: currentModel,
+            modelReasoningEffort: currentModelReasoningEffort,
             collaborationMode: currentCollaborationMode
         };
         const formattedText = formatMessageWithAttachments(message.content.text, message.content.attachments);
@@ -126,11 +140,31 @@ export async function runCodex(opts: {
         return trimmed as EnhancedMode['collaborationMode'];
     };
 
+    const resolveModelReasoningEffort = (value: unknown): ReasoningEffort | undefined => {
+        if (value === null) {
+            return undefined;
+        }
+        if (typeof value !== 'string') {
+            throw new Error('Invalid model reasoning effort');
+        }
+        const trimmed = value.trim() as ReasoningEffort;
+        const allowed: ReasoningEffort[] = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'];
+        if (!allowed.includes(trimmed)) {
+            throw new Error('Invalid model reasoning effort');
+        }
+        return trimmed;
+    };
+
     session.rpcHandlerManager.registerHandler('set-session-config', async (payload: unknown) => {
         if (!payload || typeof payload !== 'object') {
             throw new Error('Invalid session config payload');
         }
-        const config = payload as { permissionMode?: unknown; collaborationMode?: unknown; model?: unknown };
+        const config = payload as {
+            permissionMode?: unknown;
+            collaborationMode?: unknown;
+            model?: unknown;
+            modelReasoningEffort?: unknown;
+        };
 
         if (config.permissionMode !== undefined) {
             currentPermissionMode = resolvePermissionMode(config.permissionMode);
@@ -155,8 +189,19 @@ export async function runCodex(opts: {
             }
         }
 
+        if (config.modelReasoningEffort !== undefined) {
+            currentModelReasoningEffort = resolveModelReasoningEffort(config.modelReasoningEffort);
+        }
+
         syncSessionMode();
-        return { applied: { permissionMode: currentPermissionMode, collaborationMode: currentCollaborationMode, model: currentModel } };
+        return {
+            applied: {
+                permissionMode: currentPermissionMode,
+                collaborationMode: currentCollaborationMode,
+                model: currentModel,
+                modelReasoningEffort: currentModelReasoningEffort
+            }
+        };
     });
 
     try {
