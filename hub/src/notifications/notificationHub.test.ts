@@ -55,6 +55,7 @@ function createSession(overrides: Partial<Session> = {}): Session {
         metadataVersion: 0,
         agentState: null,
         agentStateVersion: 0,
+        effort: null,
         thinking: false,
         thinkingAt: 0,
         ...overrides

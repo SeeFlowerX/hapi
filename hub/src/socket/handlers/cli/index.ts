@@ -17,6 +17,7 @@ type SessionAlivePayload = {
     mode?: 'local' | 'remote'
     permissionMode?: PermissionMode
     modelMode?: ModelMode
+    effort?: string | null
 }
 
 type SessionEndPayload = {

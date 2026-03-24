@@ -10,13 +10,14 @@ import { setPendingCodexModel } from '@/lib/pendingCodexModel'
 import { useDefaultCodexModel } from '@/hooks/useDefaultCodexModel'
 import { setCodexAutoSession } from '@/lib/codexSessionAuto'
 import { useTranslation } from '@/lib/use-translation'
-import type { AgentType, CodexReasoningEffort, SessionType } from './types'
+import type { AgentType, ClaudeEffort, CodexReasoningEffort, SessionType } from './types'
 import { ActionButtons } from './ActionButtons'
 import { AgentSelector } from './AgentSelector'
 import { DirectoryBrowser } from './DirectoryBrowser'
 import { DirectorySection } from './DirectorySection'
 import { MachineSelector } from './MachineSelector'
 import { ModelSelector } from './ModelSelector'
+import { ClaudeEffortSelector } from './ClaudeEffortSelector'
 import { ReasoningEffortSelector } from './ReasoningEffortSelector'
 import {
     loadPreferredAgent,
@@ -56,6 +57,7 @@ export function NewSession(props: {
             ? (resolvedDefaultCodexModel ?? 'auto')
             : 'auto'
     ))
+    const [effort, setEffort] = useState<ClaudeEffort>('auto')
     const [modelReasoningEffort, setModelReasoningEffort] = useState<CodexReasoningEffort>('default')
     const [yoloMode, setYoloMode] = useState(loadPreferredYoloMode)
     const [sessionType, setSessionType] = useState<SessionType>('simple')
@@ -76,6 +78,7 @@ export function NewSession(props: {
             return
         }
         setModel('auto')
+        setEffort('auto')
     }, [agent, resolvedDefaultCodexModel])
 
     useEffect(() => {
@@ -133,15 +136,6 @@ export function NewSession(props: {
         setBrowserPath('')
         setIsBrowserOpen(false)
     }, [machineId, getRecentPaths])
-
-    const selectedMachine = useMemo(
-        () => (machineId ? props.machines.find((machine) => machine.id === machineId) ?? null : null),
-        [machineId, props.machines]
-    )
-    const runnerSpawnError = useMemo(
-        () => formatRunnerSpawnError(selectedMachine),
-        [selectedMachine]
-    )
 
     const selectedMachine = useMemo(
         () => (machineId ? props.machines.find((machine) => machine.id === machineId) ?? null : null),
@@ -341,6 +335,12 @@ export function NewSession(props: {
                 model={model}
                 isDisabled={isFormDisabled}
                 onModelChange={setModel}
+            />
+            <ClaudeEffortSelector
+                agent={agent}
+                effort={effort}
+                isDisabled={isFormDisabled}
+                onEffortChange={setEffort}
             />
             <ReasoningEffortSelector
                 agent={agent}

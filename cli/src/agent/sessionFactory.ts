@@ -22,6 +22,7 @@ export type SessionBootstrapOptions = {
     tag?: string
     agentState?: AgentState | null
     resumeSessionId?: string | null
+    effort?: string
 }
 
 export type SessionBootstrapResult = {
@@ -142,7 +143,8 @@ export async function bootstrapSession(options: SessionBootstrapOptions): Promis
     const sessionInfo = await api.getOrCreateSession({
         tag: sessionTag,
         metadata,
-        state: agentState
+        state: agentState,
+        effort: options.effort
     })
 
     const session = api.sessionSyncClient(sessionInfo)

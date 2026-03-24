@@ -55,8 +55,8 @@ export class SessionCache {
         return this.getSessions().filter((session) => session.active)
     }
 
-    getOrCreateSession(tag: string, metadata: unknown, agentState: unknown, namespace: string): Session {
-        const stored = this.store.sessions.getOrCreateSession(tag, metadata, agentState, namespace)
+    getOrCreateSession(tag: string, metadata: unknown, agentState: unknown, namespace: string, effort?: string): Session {
+        const stored = this.store.sessions.getOrCreateSession(tag, metadata, agentState, namespace, effort)
         return this.refreshSession(stored.id) ?? (() => { throw new Error('Failed to load session') })()
     }
 
@@ -126,6 +126,7 @@ export class SessionCache {
             thinkingAt: existing?.thinkingAt ?? 0,
             todos,
             teamState,
+            effort: stored.effort ?? null,
             permissionMode: existing?.permissionMode,
             modelMode: existing?.modelMode,
             codexModel: existing?.codexModel
@@ -150,6 +151,7 @@ export class SessionCache {
         mode?: 'local' | 'remote'
         permissionMode?: PermissionMode
         modelMode?: ModelMode
+        effort?: string | null
     }): void {
         const t = clampAliveTime(payload.time)
         if (!t) return
@@ -161,6 +163,7 @@ export class SessionCache {
         const wasThinking = session.thinking
         const previousPermissionMode = session.permissionMode
         const previousModelMode = session.modelMode
+        const previousEffort = session.effort
 
         session.active = true
         session.activeAt = Math.max(session.activeAt, t)
@@ -172,10 +175,20 @@ export class SessionCache {
         if (payload.modelMode !== undefined) {
             session.modelMode = payload.modelMode
         }
+        if (payload.effort !== undefined) {
+            if (payload.effort !== session.effort) {
+                this.store.sessions.setSessionEffort(payload.sid, payload.effort, session.namespace, {
+                    touchUpdatedAt: false
+                })
+            }
+            session.effort = payload.effort
+        }
 
         const now = Date.now()
         const lastBroadcastAt = this.lastBroadcastAtBySessionId.get(session.id) ?? 0
-        const modeChanged = previousPermissionMode !== session.permissionMode || previousModelMode !== session.modelMode
+        const modeChanged = previousPermissionMode !== session.permissionMode
+            || previousModelMode !== session.modelMode
+            || previousEffort !== session.effort
         const shouldBroadcast = (!wasActive && session.active)
             || (wasThinking !== session.thinking)
             || modeChanged
@@ -191,7 +204,8 @@ export class SessionCache {
                     activeAt: session.activeAt,
                     thinking: session.thinking,
                     permissionMode: session.permissionMode,
-                    modelMode: session.modelMode
+                    modelMode: session.modelMode,
+                    effort: session.effort
                 }
             })
         }
@@ -226,7 +240,7 @@ export class SessionCache {
         }
     }
 
-    applySessionConfig(sessionId: string, config: { permissionMode?: PermissionMode; modelMode?: ModelMode }): void {
+    applySessionConfig(sessionId: string, config: { permissionMode?: PermissionMode; modelMode?: ModelMode; effort?: string | null }): void {
         const session = this.sessions.get(sessionId) ?? this.refreshSession(sessionId)
         if (!session) {
             return
@@ -237,6 +251,17 @@ export class SessionCache {
         }
         if (config.modelMode !== undefined) {
             session.modelMode = config.modelMode
+        }
+        if (config.effort !== undefined) {
+            if (config.effort !== session.effort) {
+                const updated = this.store.sessions.setSessionEffort(sessionId, config.effort, session.namespace, {
+                    touchUpdatedAt: false
+                })
+                if (!updated) {
+                    throw new Error('Failed to update session effort')
+                }
+            }
+            session.effort = config.effort
         }
 
         this.publisher.emit({ type: 'session-updated', sessionId, data: session })
@@ -358,6 +383,15 @@ export class SessionCache {
             }
         }
 
+        if (newStored.effort === null && oldStored.effort !== null) {
+            const updated = this.store.sessions.setSessionEffort(newSessionId, oldStored.effort, namespace, {
+                touchUpdatedAt: false
+            })
+            if (!updated) {
+                throw new Error('Failed to preserve session effort during merge')
+            }
+        }
+
         if (oldStored.todos !== null && oldStored.todosUpdatedAt !== null) {
             this.store.sessions.setSessionTodos(
                 newSessionId,
@@ -410,6 +444,7 @@ export class SessionCache {
                     data: {
                         permissionMode: refreshed.permissionMode,
                         modelMode: refreshed.modelMode,
+                        effort: refreshed.effort,
                         codexModel: refreshed.codexModel
                     }
                 })

@@ -68,7 +68,7 @@ export function SessionChat(props: {
     const blocksByIdRef = useRef<Map<string, ChatBlock>>(new Map())
     const [forceScrollToken, setForceScrollToken] = useState(0)
     const agentFlavor = props.session.metadata?.flavor ?? null
-    const { abortSession, switchSession, setPermissionMode, setModelMode, setCodexModel } = useSessionActions(
+    const { abortSession, switchSession, setPermissionMode, setModelMode, setCodexModel, setEffort } = useSessionActions(
         props.api,
         props.session.id,
         agentFlavor
@@ -390,6 +390,17 @@ export function SessionChat(props: {
         }
     }, [isCodex, setCodexModel, props.session.id, props.onRefresh, haptic])
 
+    const handleEffortChange = useCallback(async (effort: string | null) => {
+        try {
+            await setEffort(effort)
+            haptic.notification('success')
+            props.onRefresh()
+        } catch (e) {
+            haptic.notification('error')
+            console.error('Failed to set effort:', e)
+        }
+    }, [setEffort, props.onRefresh, haptic])
+
     // Abort handler
     const handleAbort = useCallback(async () => {
         await abortSession()
@@ -529,6 +540,7 @@ export function SessionChat(props: {
                         permissionMode={props.session.permissionMode}
                         modelMode={props.session.modelMode}
                         codexModel={codexModel}
+                        effort={props.session.effort}
                         agentFlavor={agentFlavor}
                         active={props.session.active}
                         allowSendWhenInactive
@@ -539,6 +551,7 @@ export function SessionChat(props: {
                         onPermissionModeChange={isReadOnly ? undefined : handlePermissionModeChange}
                         onModelModeChange={isReadOnly ? undefined : handleModelModeChange}
                         onCodexModelChange={isReadOnly ? undefined : handleCodexModelChange}
+                        onEffortChange={isReadOnly ? undefined : handleEffortChange}
                         onSwitchToRemote={isReadOnly ? undefined : handleSwitchToRemote}
                         onTerminal={props.session.active && !isReadOnly && terminalSupported ? handleViewTerminal : undefined}
                         terminalUnsupported={props.session.active && !terminalSupported}

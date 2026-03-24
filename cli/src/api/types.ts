@@ -22,6 +22,7 @@ export type {
 } from '@hapi/protocol/types'
 export type SessionPermissionMode = PermissionMode
 export type SessionModelMode = ModelMode
+export type SessionEffort = string | null
 
 export { AgentStateSchema, AttachmentMetadataSchema, MetadataSchema }
 
@@ -105,6 +106,7 @@ export const CreateSessionResponseSchema = z.object({
         thinking: z.boolean(),
         thinkingAt: z.number(),
         todos: TodosSchema.optional(),
+        effort: z.string().nullable(),
         permissionMode: PermissionModeSchema.optional(),
         modelMode: ModelModeSchema.optional()
     })

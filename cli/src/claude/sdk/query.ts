@@ -310,6 +310,7 @@ export function query(config: {
             continue: continueConversation,
             resume,
             model,
+            effort,
             fallbackModel,
             settingsPath,
             strictMcpConfig,
@@ -331,6 +332,7 @@ export function query(config: {
     if (appendSystemPrompt) args.push('--append-system-prompt', stripNewlinesForWindowsShellArg(appendSystemPrompt))
     if (maxTurns) args.push('--max-turns', maxTurns.toString())
     if (model) args.push('--model', model)
+    if (effort) args.push('--effort', effort)
     if (canCallTool) {
         if (typeof prompt === 'string') {
             throw new Error('canCallTool callback requires --input-format stream-json. Please set prompt as an AsyncIterable.')
