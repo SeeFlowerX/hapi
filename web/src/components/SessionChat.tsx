@@ -466,7 +466,7 @@ export function SessionChat(props: {
     })
 
     return (
-        <div className="flex h-full flex-col">
+        <div className="flex h-full min-h-0 flex-col">
             <SessionHeader
                 session={props.session}
                 codexModelLabel={isCodex ? getCodexModelLabel(codexModel) : null}
