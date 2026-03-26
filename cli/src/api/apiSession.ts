@@ -378,15 +378,15 @@ export class ApiSessionClient extends EventEmitter {
         }
 
         return {
-            role: 'agent',
-            content: {
-                type: 'output',
-                data: body
-            },
-            meta: {
-                sentFrom: 'cli'
+                role: 'agent',
+                content: {
+                    type: 'output',
+                    data: body
+                },
+                meta: {
+                    sentFrom: 'cli'
+                }
             }
-        }
     }
 
     sendClaudeSessionMessage(body: RawJSONLines): void {
