@@ -303,7 +303,7 @@ export class AcpStdioTransport {
         if (lowerText.includes('status 404') || lowerText.includes('model not found') || lowerText.includes('not_found')) {
             this.stderrErrorHandler({
                 type: 'model_not_found',
-                message: 'Model not found. Available models: gemini-2.5-pro, gemini-2.5-flash, gemini-2.0-flash',
+                message: 'Model not found. Available models: gemini-3.1-pro-preview, gemini-3-flash-preview, gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite',
                 raw: text
             });
             return;
