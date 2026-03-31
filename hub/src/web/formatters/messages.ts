@@ -1,5 +1,5 @@
 import type { DecryptedMessage, SyncEvent } from '@hapi/protocol/types'
-import { formatMessageContentForWeb } from '@/utils/formatShellCommand'
+import { formatMessageContentForWeb } from '../../utils/formatShellCommand'
 
 export async function formatDecryptedMessageForWeb(message: DecryptedMessage): Promise<DecryptedMessage> {
     const formattedContent = await formatMessageContentForWeb(message.content)
