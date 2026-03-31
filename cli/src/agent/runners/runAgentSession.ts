@@ -1,4 +1,4 @@
-import type { AgentState } from '@/api/types';
+import type { AgentState, SessionPermissionMode } from '@/api/types';
 import { logger } from '@/ui/logger';
 import { MessageQueue2 } from '@/utils/MessageQueue2';
 import { hashObject } from '@/utils/deterministicJson';
@@ -12,6 +12,9 @@ import { registerKillSessionHandler } from '@/claude/registerKillSessionHandler'
 import { bootstrapSession } from '@/agent/sessionFactory';
 import { formatMessageWithAttachments } from '@/utils/attachmentFormatter';
 import { ReminderTimerManager } from '@/utils/ReminderTimerManager';
+import { getInvokedCwd } from '@/utils/invokedCwd';
+import { PermissionModeSchema } from '@hapi/protocol/schemas';
+import { isPermissionModeAllowedForFlavor } from '@hapi/protocol';
 
 function emitReadyIfIdle(props: {
     queueSize: () => number;
@@ -28,14 +31,16 @@ function emitReadyIfIdle(props: {
 export async function runAgentSession(opts: {
     agentType: string;
     startedBy?: 'runner' | 'terminal';
+    permissionMode?: SessionPermissionMode;
 }): Promise<void> {
+    const workingDirectory = getInvokedCwd();
     const initialState: AgentState = {
         controlledByUser: false
     };
-    const { session } = await bootstrapSession({
+    const { session, sessionInfo } = await bootstrapSession({
         flavor: opts.agentType,
         startedBy: opts.startedBy ?? 'terminal',
-        workingDirectory: process.cwd(),
+        workingDirectory,
         agentState: initialState
     });
 
@@ -51,10 +56,12 @@ export async function runAgentSession(opts: {
         messageQueue.push(formattedText, {});
     });
 
+    let currentPermissionMode: SessionPermissionMode = opts.permissionMode ?? sessionInfo.permissionMode ?? 'default';
+
     const backend: AgentBackend = AgentRegistry.create(opts.agentType);
     await backend.initialize();
 
-    const permissionAdapter = new PermissionAdapter(session, backend);
+    const permissionAdapter = new PermissionAdapter(session, backend, () => currentPermissionMode);
 
     let thinking = false;
     const reminderManager = new ReminderTimerManager<Record<string, never>>({
@@ -75,24 +82,51 @@ export async function runAgentSession(opts: {
     ];
 
     const agentSessionId = await backend.newSession({
-        cwd: process.cwd(),
+        cwd: workingDirectory,
         mcpServers
     });
 
     let shouldExit = false;
     let waitAbortController: AbortController | null = null;
-
     const setThinking = (value: boolean) => {
         thinking = value;
-        session.keepAlive(thinking, 'remote');
+        syncKeepAlive();
         if (!thinking) {
             reminderManager.handleIdle();
         }
     };
 
-    session.keepAlive(thinking, 'remote');
+    const syncKeepAlive = () => {
+        session.keepAlive(thinking, 'remote', {
+            permissionMode: currentPermissionMode
+        });
+    };
+
+    const resolvePermissionMode = (value: unknown): SessionPermissionMode => {
+        const parsed = PermissionModeSchema.safeParse(value);
+        if (!parsed.success || !isPermissionModeAllowedForFlavor(parsed.data, opts.agentType)) {
+            throw new Error('Invalid permission mode');
+        }
+        return parsed.data as SessionPermissionMode;
+    };
+
+    session.rpcHandlerManager.registerHandler('set-session-config', async (payload: unknown) => {
+        if (!payload || typeof payload !== 'object') {
+            throw new Error('Invalid session config payload');
+        }
+        const config = payload as { permissionMode?: unknown };
+
+        if (config.permissionMode !== undefined) {
+            currentPermissionMode = resolvePermissionMode(config.permissionMode);
+        }
+
+        syncKeepAlive();
+        return { applied: { permissionMode: currentPermissionMode } };
+    });
+
+    syncKeepAlive();
     const keepAliveInterval = setInterval(() => {
-        session.keepAlive(thinking, 'remote');
+        syncKeepAlive();
     }, 2000);
 
     const sendReady = () => {
