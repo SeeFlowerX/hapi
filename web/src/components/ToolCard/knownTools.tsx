@@ -68,7 +68,7 @@ export const knownTools: Record<string, {
     Bash: {
         icon: () => <TerminalIcon className={DEFAULT_ICON_CLASS} />,
         title: (opts) => opts.description ?? 'Terminal',
-        subtitle: (opts) => getInputStringAny(opts.input, ['command', 'cmd']),
+        subtitle: (opts) => getInputStringAny(opts.input, ['commandFormatted', 'command_formatted', 'command', 'cmd']),
         minimal: true
     },
     Glob: {
@@ -112,7 +112,7 @@ export const knownTools: Record<string, {
             return opts.description ?? 'Terminal'
         },
         subtitle: (opts) => {
-            const command = getInputStringAny(opts.input, ['command', 'cmd'])
+            const command = getInputStringAny(opts.input, ['commandFormatted', 'command_formatted', 'command', 'cmd'])
             if (command) return command
             if (isObject(opts.input) && Array.isArray(opts.input.command)) {
                 return opts.input.command.filter((part) => typeof part === 'string').join(' ')
@@ -133,7 +133,7 @@ export const knownTools: Record<string, {
     shell_command: {
         icon: () => <TerminalIcon className={DEFAULT_ICON_CLASS} />,
         title: (opts) => opts.description ?? 'Terminal',
-        subtitle: (opts) => getInputStringAny(opts.input, ['command', 'cmd']),
+        subtitle: (opts) => getInputStringAny(opts.input, ['commandFormatted', 'command_formatted', 'command', 'cmd']),
         minimal: true
     },
     Read: {

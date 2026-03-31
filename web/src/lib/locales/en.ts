@@ -232,6 +232,8 @@ export default {
 
   // Code block
   'code.copy': 'Copy',
+  'code.format': 'Format',
+  'code.raw': 'Raw',
 
   // Diff view
   'diff.title': 'Diff',

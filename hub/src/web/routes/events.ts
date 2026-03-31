@@ -8,6 +8,7 @@ import type { VisibilityState } from '../../visibility/visibilityTracker'
 import type { VisibilityTracker } from '../../visibility/visibilityTracker'
 import type { WebAppEnv } from '../middleware/auth'
 import { requireSession } from './guards'
+import { formatSyncEventForWeb } from '../formatters/messages'
 
 function parseOptionalId(value: string | undefined): string | null {
     if (!value) {
@@ -85,7 +86,10 @@ export function createEventsRoutes(
                 sessionId: resolvedSessionId,
                 machineId,
                 visibility,
-                send: (event) => stream.writeSSE({ data: JSON.stringify(event) }),
+                send: async (event) => {
+                    const formatted = await formatSyncEventForWeb(event)
+                    return stream.writeSSE({ data: JSON.stringify(formatted) })
+                },
                 sendHeartbeat: async () => {
                     await stream.write(': heartbeat\n\n')
                 }

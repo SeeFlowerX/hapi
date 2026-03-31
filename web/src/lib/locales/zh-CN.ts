@@ -234,6 +234,8 @@ export default {
 
   // Code block
   'code.copy': '复制',
+  'code.format': '格式化',
+  'code.raw': '原始',
 
   // Diff view
   'diff.title': '差异',

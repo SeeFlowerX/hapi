@@ -20,6 +20,7 @@ import { usePointerFocusRing } from '@/hooks/usePointerFocusRing'
 import { getInputString, getInputStringAny, truncate } from '@/lib/toolInputUtils'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/lib/use-translation'
+import { formatShellCommandForDisplay } from '@/lib/formatShellCommand'
 
 const ELAPSED_INTERVAL_MS = 1000
 
@@ -220,7 +221,17 @@ function renderToolInput(block: ToolCallBlock): ReactNode {
             ? commandArray.filter((part) => typeof part === 'string').join(' ')
             : getInputStringAny(input, ['command', 'cmd'])
         if (cmd) {
-            return <CodeBlock code={cmd} language="bash" />
+            const formatted = isObject(input)
+                ? getInputStringAny(input, ['commandFormatted', 'command_formatted'])
+                : null
+            return (
+                <CodeBlock
+                    code={cmd}
+                    language="bash"
+                    formattedCode={formatted ?? undefined}
+                    enableShellFormat={!formatted}
+                />
+            )
         }
     }
 
@@ -305,6 +316,12 @@ function ToolCardInner(props: ToolCardProps) {
     const toolName = props.block.tool.name
     const toolTitle = presentation.title
     const subtitle = presentation.subtitle ?? props.block.tool.description
+    const isTerminalTool = toolName === 'Bash' || toolName === 'CodexBash' || toolName === 'shell_command'
+    const displaySubtitle = useMemo(() => {
+        if (!subtitle) return null
+        if (!isTerminalTool) return truncate(subtitle, 160)
+        return truncate(formatShellCommandForDisplay(subtitle), 260)
+    }, [subtitle, isTerminalTool])
     const taskSummary = renderTaskSummary(props.block, props.metadata)
     const runningFrom = props.block.tool.startedAt ?? props.block.tool.createdAt
     const finishedAt = props.block.tool.completedAt
@@ -356,8 +373,11 @@ function ToolCardInner(props: ToolCardProps) {
             </div>
 
             {subtitle ? (
-                <CardDescription className="font-mono text-xs break-all opacity-80">
-                    {truncate(subtitle, 160)}
+                <CardDescription className={cn(
+                    'font-mono text-xs opacity-80',
+                    isTerminalTool ? 'whitespace-pre-wrap break-all' : 'break-all'
+                )}>
+                    {displaySubtitle}
                 </CardDescription>
             ) : null}
         </div>
