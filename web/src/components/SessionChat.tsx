@@ -447,7 +447,6 @@ export function SessionChat(props: {
         props.onSend(text, attachments)
         setForceScrollToken((token) => token + 1)
     }, [agentFlavor, props.availableSlashCommands, props.onSend, props.session.id, addToast, haptic, isReadOnly, t])
-    }, [agentFlavor, props.availableSlashCommands, props.onSend, props.session.id, addToast, haptic, isReadOnly, t])
 
     const attachmentAdapter = useMemo(() => {
         if (!props.session.active || isReadOnly) {
