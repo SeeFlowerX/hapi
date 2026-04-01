@@ -147,6 +147,7 @@ export class AppServerEventConverter {
     private readonly commandOutputBuffers = new Map<string, string>();
     private readonly commandMeta = new Map<string, Record<string, unknown>>();
     private readonly fileChangeMeta = new Map<string, Record<string, unknown>>();
+    private readonly rawResponseCompletedCallIds = new Set<string>();
     private readonly completedAgentMessageItems = new Set<string>();
     private readonly completedReasoningItems = new Set<string>();
     private readonly reasoningSectionBreakKeys = new Set<string>();
@@ -304,6 +305,44 @@ export class AppServerEventConverter {
 
         if (method.startsWith('codex/event/')) {
             return this.handleWrappedCodexEvent(paramsRecord) ?? events;
+        }
+
+        if (method === 'rawResponseItem/completed' || method === 'rawResponseItem/started') {
+            const item = asRecord(paramsRecord.item);
+            const itemType = normalizeItemType(item?.type);
+
+            if (itemType === 'functioncall') {
+                const name = asString(item?.name);
+                const callId = asString(item?.call_id ?? item?.callId ?? item?.id);
+                if (!name || !callId) {
+                    return events;
+                }
+
+                events.push({
+                    type: 'tool-call',
+                    name,
+                    call_id: callId,
+                    input: parseFunctionArguments(item?.arguments)
+                });
+                return events;
+            }
+
+            if (itemType === 'functioncalloutput') {
+                const callId = asString(item?.call_id ?? item?.callId ?? item?.id);
+                if (!callId) {
+                    return events;
+                }
+
+                const isError = asBoolean(item?.is_error ?? item?.isError);
+                this.rawResponseCompletedCallIds.add(callId);
+                events.push({
+                    type: 'tool-call-result',
+                    call_id: callId,
+                    output: parseFunctionArguments(item?.output),
+                    ...(isError !== null ? { is_error: isError } : {})
+                });
+                return events;
+            }
         }
 
         if (method === 'account/rateLimits/updated' || method === 'turn/plan/updated') {
@@ -583,6 +622,9 @@ export class AppServerEventConverter {
                     const rawResult = item.result ?? item.output ?? item.response ?? item.value ?? item.return ?? item.data;
                     const error = asString(item.error ?? item.err ?? item.message);
                     const status = asString(item.status);
+                    if (rawResult === undefined && !error && this.rawResponseCompletedCallIds.has(itemId)) {
+                        return events;
+                    }
                     let result = rawResult;
                     if (result === undefined && error) {
                         result = { Err: error };
@@ -612,6 +654,7 @@ export class AppServerEventConverter {
         this.commandOutputBuffers.clear();
         this.commandMeta.clear();
         this.fileChangeMeta.clear();
+        this.rawResponseCompletedCallIds.clear();
         this.completedAgentMessageItems.clear();
         this.completedReasoningItems.clear();
         this.reasoningSectionBreakKeys.clear();

@@ -172,6 +172,46 @@ describe('AppServerEventConverter', () => {
         }]);
     });
 
+    it('maps raw response tool output items and parses JSON payloads', () => {
+        const converter = new AppServerEventConverter();
+
+        const events = converter.handleNotification('rawResponseItem/completed', {
+            item: {
+                type: 'function_call_output',
+                call_id: 'call-2',
+                output: '[{\"type\":\"text\",\"text\":\"Reminder started: timerId=abc\"}]'
+            }
+        });
+
+        expect(events).toEqual([{
+            type: 'tool-call-result',
+            call_id: 'call-2',
+            output: [{ type: 'text', text: 'Reminder started: timerId=abc' }]
+        }]);
+    });
+
+    it('ignores fallback failed mcp item completion after raw response output already arrived', () => {
+        const converter = new AppServerEventConverter();
+
+        converter.handleNotification('rawResponseItem/completed', {
+            item: {
+                type: 'function_call_output',
+                call_id: 'call-3',
+                output: '[{\"type\":\"text\",\"text\":\"Reminder started\"}]'
+            }
+        });
+
+        const completed = converter.handleNotification('item/completed', {
+            item: {
+                id: 'call-3',
+                type: 'mcpToolCall',
+                status: 'failed'
+            }
+        });
+
+        expect(completed).toEqual([]);
+    });
+
     it('unwraps codex/event task lifecycle', () => {
         const converter = new AppServerEventConverter();
 
