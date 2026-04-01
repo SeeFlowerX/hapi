@@ -98,40 +98,9 @@ export class Store {
             return
         }
 
-        if (currentVersion === 1 && SCHEMA_VERSION === 2) {
-            this.migrateFromV1ToV2()
-            this.setUserVersion(SCHEMA_VERSION)
-            return
-        }
-
-        if (currentVersion === 2 && SCHEMA_VERSION === 3) {
-            this.migrateFromV2ToV3()
-            this.setUserVersion(SCHEMA_VERSION)
-            return
-        }
-
-        if (currentVersion === 3 && SCHEMA_VERSION === 4) {
-            this.migrateFromV3ToV4()
-            this.setUserVersion(SCHEMA_VERSION)
-            return
-        }
-
-        if (currentVersion === 4 && SCHEMA_VERSION === 5) {
-            this.migrateFromV4ToV5()
-            this.setUserVersion(SCHEMA_VERSION)
-            return
-        }
-
-        if (currentVersion === 5 && SCHEMA_VERSION === 6) {
-            this.migrateFromV5ToV6()
-            this.setUserVersion(SCHEMA_VERSION)
-            return
-        }
-
-        if (currentVersion === 4 && SCHEMA_VERSION === 6) {
-            this.migrateFromV4ToV5()
-            this.migrateFromV5ToV6()
-            this.setUserVersion(SCHEMA_VERSION)
+        if (currentVersion < SCHEMA_VERSION) {
+            this.migrateSchemaToCurrentVersion(currentVersion)
+            this.assertRequiredTablesPresent()
             return
         }
 
@@ -140,6 +109,37 @@ export class Store {
         }
 
         this.assertRequiredTablesPresent()
+    }
+
+    private migrateSchemaToCurrentVersion(initialVersion: number): void {
+        let currentVersion = initialVersion
+
+        while (currentVersion < SCHEMA_VERSION) {
+            const nextVersion = currentVersion + 1
+
+            switch (currentVersion) {
+                case 1:
+                    this.migrateFromV1ToV2()
+                    break
+                case 2:
+                    this.migrateFromV2ToV3()
+                    break
+                case 3:
+                    this.migrateFromV3ToV4()
+                    break
+                case 4:
+                    this.migrateFromV4ToV5()
+                    break
+                case 5:
+                    this.migrateFromV5ToV6()
+                    break
+                default:
+                    throw this.buildSchemaMismatchError(currentVersion)
+            }
+
+            this.setUserVersion(nextVersion)
+            currentVersion = nextVersion
+        }
     }
 
     private createSchema(): void {
@@ -378,7 +378,7 @@ export class Store {
         return new Error(
             `SQLite schema version mismatch for ${location}. ` +
             `Expected ${SCHEMA_VERSION}, found ${currentVersion}. ` +
-            'This build does not run compatibility migrations. ' +
+            'No automatic migration path is available for this schema version. ' +
             'Back up and rebuild the database, or run an offline migration to the expected schema version.'
         )
     }
