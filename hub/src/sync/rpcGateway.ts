@@ -107,6 +107,7 @@ export class RpcGateway {
             permissionMode?: PermissionMode
             modelMode?: ModelMode
             model?: string | null
+            modelReasoningEffort?: string | null
             effort?: string | null
         }
     ): Promise<unknown> {

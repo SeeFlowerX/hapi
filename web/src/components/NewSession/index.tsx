@@ -58,7 +58,7 @@ export function NewSession(props: {
             : 'auto'
     ))
     const [effort, setEffort] = useState<ClaudeEffort>('auto')
-    const [modelReasoningEffort, setModelReasoningEffort] = useState<CodexReasoningEffort>('default')
+    const [modelReasoningEffort, setModelReasoningEffort] = useState<CodexReasoningEffort>('high')
     const [yoloMode, setYoloMode] = useState(loadPreferredYoloMode)
     const [sessionType, setSessionType] = useState<SessionType>('simple')
     const [worktreeName, setWorktreeName] = useState('')

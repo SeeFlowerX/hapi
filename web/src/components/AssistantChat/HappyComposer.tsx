@@ -31,6 +31,7 @@ import { ComposerButtons } from '@/components/AssistantChat/ComposerButtons'
 import { AttachmentItem } from '@/components/AssistantChat/AttachmentItem'
 import { useTranslation } from '@/lib/use-translation'
 import { getClaudeComposerEffortOptions } from './claudeEffortOptions'
+import { CODEX_REASONING_EFFORT_OPTIONS } from '@/components/NewSession/types'
 
 export interface TextInputState {
     text: string
@@ -104,7 +105,7 @@ export function HappyComposer(props: {
     const isCodexFlavor = agentFlavor === 'codex'
     const codexModel = normalizeCodexModel(rawCodexModel)
     const codexModelValue = codexModel ?? 'auto'
-    const effort = rawEffort ?? null
+    const effort = isCodexFlavor ? (rawEffort ?? 'high') : (rawEffort ?? null)
 
     const api = useAssistantApi()
     const composerText = useAssistantState(({ composer }) => composer.text)
@@ -472,7 +473,8 @@ export function HappyComposer(props: {
     const showPermissionSettings = Boolean(onPermissionModeChange && permissionModeOptions.length > 0)
     const showModelSettings = Boolean(onModelModeChange && isClaudeFlavor(agentFlavor))
     const showCodexModelSettings = Boolean(onCodexModelChange && isCodexFlavor)
-    const showEffortSettings = Boolean(onEffortChange && isClaudeFlavor(agentFlavor))
+    const showEffortSettings = Boolean(onEffortChange && (isClaudeFlavor(agentFlavor) || isCodexFlavor))
+    const codexReasoningEffortOptions = useMemo(() => CODEX_REASONING_EFFORT_OPTIONS, [])
     const showSettingsButton = Boolean(showPermissionSettings || showModelSettings || showCodexModelSettings || showEffortSettings)
     const showAbortButton = true
     const voiceEnabled = Boolean(onVoiceToggle)
@@ -610,7 +612,13 @@ export function HappyComposer(props: {
                                 <div className="px-3 pb-1 text-xs font-semibold text-[var(--app-hint)]">
                                     {t('misc.effort')}
                                 </div>
-                                {claudeEffortOptions.map((option) => (
+                                {(isCodexFlavor
+                                    ? codexReasoningEffortOptions.map((option) => ({
+                                        value: option.value === 'default' ? null : option.value,
+                                        label: option.label
+                                    }))
+                                    : claudeEffortOptions
+                                ).map((option) => (
                                     <button
                                         key={option.value ?? 'auto'}
                                         type="button"
@@ -675,6 +683,7 @@ export function HappyComposer(props: {
         codexModelValue,
         effort,
         claudeEffortOptions,
+        codexReasoningEffortOptions,
         permissionModeOptions,
         handlePermissionChange,
         handleModelChange,

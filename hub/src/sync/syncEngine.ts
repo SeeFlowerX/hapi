@@ -297,6 +297,7 @@ export class SyncEngine {
         config: {
             permissionMode?: PermissionMode
             modelMode?: ModelMode
+            modelReasoningEffort?: string | null
             effort?: string | null
         }
     ): Promise<void> {
@@ -308,12 +309,17 @@ export class SyncEngine {
             applied?: {
                 permissionMode?: Session['permissionMode']
                 modelMode?: Session['modelMode']
+                modelReasoningEffort?: string | null
                 effort?: Session['effort']
             }
         }
         const applied = obj.applied
         if (!applied || typeof applied !== 'object') {
             throw new Error('Missing applied session config')
+        }
+
+        if (applied.effort === undefined && applied.modelReasoningEffort !== undefined) {
+            applied.effort = applied.modelReasoningEffort
         }
 
         this.sessionCache.applySessionConfig(sessionId, applied)

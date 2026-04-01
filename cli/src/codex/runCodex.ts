@@ -16,6 +16,8 @@ import type { ReasoningEffort } from './appServerTypes';
 
 export { emitReadyIfIdle } from './utils/emitReadyIfIdle';
 
+const DEFAULT_CODEX_REASONING_EFFORT: ReasoningEffort = 'high';
+
 export async function runCodex(opts: {
     startedBy?: 'runner' | 'terminal';
     codexArgs?: string[];
@@ -29,6 +31,8 @@ export async function runCodex(opts: {
 
     logger.debug(`[codex] Starting with options: startedBy=${startedBy}`);
 
+    const initialModelReasoningEffort = opts.modelReasoningEffort ?? DEFAULT_CODEX_REASONING_EFFORT;
+
     let state: AgentState = {
         controlledByUser: false
     };
@@ -37,7 +41,8 @@ export async function runCodex(opts: {
         startedBy,
         workingDirectory,
         agentState: state,
-        resumeSessionId: opts.resumeSessionId ?? null
+        resumeSessionId: opts.resumeSessionId ?? null,
+        effort: initialModelReasoningEffort
     });
 
     const startingMode: 'local' | 'remote' = startedBy === 'runner' ? 'remote' : 'local';
@@ -56,7 +61,7 @@ export async function runCodex(opts: {
 
     let currentPermissionMode: PermissionMode = opts.permissionMode ?? 'default';
     let currentModel: string | undefined = opts.model;
-    let currentModelReasoningEffort: ReasoningEffort | undefined = opts.modelReasoningEffort;
+    let currentModelReasoningEffort: ReasoningEffort | undefined = initialModelReasoningEffort;
     let currentCollaborationMode: EnhancedMode['collaborationMode'];
 
     const reminderManager = new ReminderTimerManager<EnhancedMode>({
@@ -85,6 +90,7 @@ export async function runCodex(opts: {
             return;
         }
         sessionInstance.setPermissionMode(currentPermissionMode);
+        sessionInstance.setEffort(currentModelReasoningEffort ?? null);
         logger.debug(
             `[Codex] Synced session config for keepalive: ` +
             `permissionMode=${currentPermissionMode}, model=${currentModel ?? 'auto'}, ` +
@@ -164,6 +170,7 @@ export async function runCodex(opts: {
             collaborationMode?: unknown;
             model?: unknown;
             modelReasoningEffort?: unknown;
+            effort?: unknown;
         };
 
         if (config.permissionMode !== undefined) {
@@ -191,6 +198,8 @@ export async function runCodex(opts: {
 
         if (config.modelReasoningEffort !== undefined) {
             currentModelReasoningEffort = resolveModelReasoningEffort(config.modelReasoningEffort);
+        } else if (config.effort !== undefined) {
+            currentModelReasoningEffort = resolveModelReasoningEffort(config.effort);
         }
 
         syncSessionMode();
@@ -199,7 +208,8 @@ export async function runCodex(opts: {
                 permissionMode: currentPermissionMode,
                 collaborationMode: currentCollaborationMode,
                 model: currentModel,
-                modelReasoningEffort: currentModelReasoningEffort
+                modelReasoningEffort: currentModelReasoningEffort,
+                effort: currentModelReasoningEffort ?? null
             }
         };
     });
@@ -215,6 +225,7 @@ export async function runCodex(opts: {
             codexCliOverrides,
             startedBy,
             permissionMode: currentPermissionMode,
+            effort: currentModelReasoningEffort ?? null,
             resumeSessionId: opts.resumeSessionId,
             onModeChange: createModeChangeHandler(session),
             onSessionReady: (instance) => {

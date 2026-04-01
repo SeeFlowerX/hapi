@@ -29,6 +29,7 @@ interface LoopOptions {
     codexArgs?: string[];
     codexCliOverrides?: CodexCliOverrides;
     permissionMode?: PermissionMode;
+    effort?: string | null;
     resumeSessionId?: string;
     onSessionReady?: (session: CodexSession) => void;
 }
@@ -50,7 +51,8 @@ export async function loop(opts: LoopOptions): Promise<void> {
         startingMode,
         codexArgs: opts.codexArgs,
         codexCliOverrides: opts.codexCliOverrides,
-        permissionMode: opts.permissionMode ?? 'default'
+        permissionMode: opts.permissionMode ?? 'default',
+        effort: opts.effort ?? null
     });
 
     await runLocalRemoteSession({

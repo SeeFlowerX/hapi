@@ -417,12 +417,15 @@ export function createSessionsRoutes(getSyncEngine: () => SyncEngine | null): Ho
         }
 
         const flavor = sessionResult.session.metadata?.flavor ?? 'claude'
-        if (flavor !== 'claude') {
-            return c.json({ error: 'Effort selection is only supported for Claude sessions' }, 400)
+        if (flavor !== 'claude' && flavor !== 'codex') {
+            return c.json({ error: 'Effort selection is only supported for Claude and Codex sessions' }, 400)
         }
 
         try {
-            await engine.applySessionConfig(sessionResult.sessionId, { effort: parsed.data.effort })
+            const effort = flavor === 'codex'
+                ? (parsed.data.effort ?? 'high')
+                : parsed.data.effort
+            await engine.applySessionConfig(sessionResult.sessionId, { effort })
             return c.json({ ok: true })
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Failed to apply effort'
