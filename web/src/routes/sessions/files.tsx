@@ -10,7 +10,7 @@ import { useSession } from '@/hooks/queries/useSession'
 import { useSessionFileSearch } from '@/hooks/queries/useSessionFileSearch'
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
 import { parseGitLog, type GitLogEntry } from '@/lib/gitParsers'
-import { encodeBase64 } from '@/lib/utils'
+import { decodeBase64, encodeBase64 } from '@/lib/utils'
 import { queryKeys } from '@/lib/query-keys'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckIcon, CopyIcon } from '@/components/icons'
@@ -286,6 +286,41 @@ function CommitRow(props: {
     )
 }
 
+function decodeExpandedDirectories(value: unknown): Set<string> {
+    if (typeof value !== 'string' || !value) {
+        return new Set([''])
+    }
+
+    const decoded = decodeBase64(value)
+    if (!decoded.ok) {
+        return new Set([''])
+    }
+
+    try {
+        const parsed = JSON.parse(decoded.text)
+        if (!Array.isArray(parsed)) {
+            return new Set([''])
+        }
+
+        const next = new Set<string>()
+        for (const entry of parsed) {
+            if (typeof entry === 'string') {
+                next.add(entry)
+            }
+        }
+        if (!next.has('')) {
+            next.add('')
+        }
+        return next
+    } catch {
+        return new Set([''])
+    }
+}
+
+function encodeExpandedDirectories(value: Set<string>): string {
+    return encodeBase64(JSON.stringify(Array.from(value)))
+}
+
 export default function FilesPage() {
     const { api } = useAppContext()
     const navigate = useNavigate()
@@ -302,6 +337,7 @@ export default function FilesPage() {
             ? 'history'
             : 'changes'
     const [activeTab, setActiveTab] = useState<'changes' | 'directories' | 'history'>(initialTab)
+    const expandedDirectories = useMemo(() => decodeExpandedDirectories(search.expanded), [search.expanded])
 
     const {
         status: gitStatus,
@@ -342,19 +378,20 @@ export default function FilesPage() {
     }, [gitLogQuery.data])
 
     const handleOpenFile = useCallback((path: string, staged?: boolean) => {
+        const expanded = encodeExpandedDirectories(expandedDirectories)
         const fileSearch = staged === undefined
             ? (activeTab === 'directories'
-                ? { path: encodeBase64(path), tab: 'directories' as const }
+                ? { path: encodeBase64(path), tab: 'directories' as const, expanded }
                 : { path: encodeBase64(path) })
             : (activeTab === 'directories'
-                ? { path: encodeBase64(path), staged, tab: 'directories' as const }
+                ? { path: encodeBase64(path), staged, tab: 'directories' as const, expanded }
                 : { path: encodeBase64(path), staged })
         navigate({
             to: '/sessions/$sessionId/file',
             params: { sessionId },
             search: fileSearch
         })
-    }, [activeTab, navigate, sessionId])
+    }, [activeTab, expandedDirectories, navigate, sessionId])
 
     const handleOpenCommit = useCallback((hash: string) => {
         navigate({
@@ -403,10 +440,34 @@ export default function FilesPage() {
         navigate({
             to: '/sessions/$sessionId/files',
             params: { sessionId },
-            search: nextTab === 'changes' ? {} : { tab: nextTab },
+            search: nextTab === 'changes'
+                ? {}
+                : nextTab === 'directories'
+                    ? { tab: nextTab, ...(search.expanded ? { expanded: search.expanded } : {}) }
+                    : { tab: nextTab },
             replace: true,
         })
-    }, [navigate, sessionId])
+    }, [navigate, search.expanded, sessionId])
+
+    const handleToggleDirectory = useCallback((path: string) => {
+        const next = new Set(expandedDirectories)
+        if (next.has(path)) {
+            next.delete(path)
+        } else {
+            next.add(path)
+        }
+
+        const expanded = encodeExpandedDirectories(next)
+        navigate({
+            to: '/sessions/$sessionId/files',
+            params: { sessionId },
+            search: {
+                tab: 'directories',
+                expanded
+            },
+            replace: true,
+        })
+    }, [expandedDirectories, navigate, sessionId])
 
     return (
         <div className="flex h-full min-h-0 flex-col">
@@ -558,6 +619,8 @@ export default function FilesPage() {
                             sessionId={sessionId}
                             rootLabel={rootLabel}
                             onOpenFile={(path) => handleOpenFile(path)}
+                            expanded={expandedDirectories}
+                            onToggle={handleToggleDirectory}
                         />
                     ) : gitLoading ? (
                         <FileListSkeleton label="Loading Git status…" />

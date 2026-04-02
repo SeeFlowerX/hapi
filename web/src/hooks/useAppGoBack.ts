@@ -27,7 +27,15 @@ export function useAppGoBack(): () => void {
             const tab = (search && typeof search === 'object' && 'tab' in search)
                 ? (search as { tab?: unknown }).tab
                 : undefined
-            const nextSearch = tab === 'directories' ? { tab: 'directories' as const } : {}
+            const expanded = (search && typeof search === 'object' && 'expanded' in search)
+                ? (search as { expanded?: unknown }).expanded
+                : undefined
+            const nextSearch = tab === 'directories'
+                ? {
+                    tab: 'directories' as const,
+                    ...(typeof expanded === 'string' && expanded ? { expanded } : {})
+                }
+                : {}
 
             navigate({ to: filesPath, search: nextSearch })
             return

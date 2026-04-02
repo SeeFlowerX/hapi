@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import type { ApiClient } from '@/api/client'
 import { FileIcon } from '@/components/FileIcon'
 import { CheckIcon, CopyIcon } from '@/components/icons'
@@ -220,21 +220,9 @@ export function DirectoryTree(props: {
     sessionId: string
     rootLabel: string
     onOpenFile: (path: string) => void
+    expanded: Set<string>
+    onToggle: (path: string) => void
 }) {
-    const [expanded, setExpanded] = useState<Set<string>>(() => new Set(['']))
-
-    const handleToggle = useCallback((path: string) => {
-        setExpanded((prev) => {
-            const next = new Set(prev)
-            if (next.has(path)) {
-                next.delete(path)
-            } else {
-                next.add(path)
-            }
-            return next
-        })
-    }, [])
-
     return (
         <div className="border-t border-[var(--app-divider)]">
             <DirectoryNode
@@ -244,8 +232,8 @@ export function DirectoryTree(props: {
                 label={props.rootLabel}
                 depth={0}
                 onOpenFile={props.onOpenFile}
-                expanded={expanded}
-                onToggle={handleToggle}
+                expanded={props.expanded}
+                onToggle={props.onToggle}
             />
         </div>
     )

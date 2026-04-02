@@ -655,7 +655,7 @@ const sessionDetailRoute = createRoute({
 const sessionFilesRoute = createRoute({
     getParentRoute: () => sessionDetailRoute,
     path: 'files',
-    validateSearch: (search: Record<string, unknown>): { tab?: 'changes' | 'directories' | 'history' } => {
+    validateSearch: (search: Record<string, unknown>): { tab?: 'changes' | 'directories' | 'history'; expanded?: string } => {
         const tabValue = typeof search.tab === 'string' ? search.tab : undefined
         const tab = tabValue === 'directories'
             ? 'directories'
@@ -664,8 +664,12 @@ const sessionFilesRoute = createRoute({
                 : tabValue === 'history'
                     ? 'history'
                     : undefined
+        const expanded = typeof search.expanded === 'string' ? search.expanded : undefined
 
-        return tab ? { tab } : {}
+        return {
+            ...(tab ? { tab } : {}),
+            ...(expanded ? { expanded } : {})
+        }
     },
     component: FilesPage,
 })
@@ -680,6 +684,7 @@ type SessionFileSearch = {
     path: string
     staged?: boolean
     tab?: 'changes' | 'directories' | 'history'
+    expanded?: string
 }
 
 const sessionFileRoute = createRoute({
@@ -701,6 +706,7 @@ const sessionFileRoute = createRoute({
                 : tabValue === 'history'
                     ? 'history'
                     : undefined
+        const expanded = typeof search.expanded === 'string' ? search.expanded : undefined
 
         const result: SessionFileSearch = { path }
         if (staged !== undefined) {
@@ -708,6 +714,9 @@ const sessionFileRoute = createRoute({
         }
         if (tab !== undefined) {
             result.tab = tab
+        }
+        if (expanded) {
+            result.expanded = expanded
         }
         return result
     },
